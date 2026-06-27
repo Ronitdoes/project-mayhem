@@ -1,6 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, useRef } from "react";
+import { usePathname } from 'next/navigation';
 import { storytellingSlides } from "./SlideScroller";
 import { useAudio } from "./AudioProvider";
 import AudioControl from "./AudioControl";
@@ -130,11 +131,21 @@ export function usePreloader() {
 
 export function PreloaderLayout({ children }: { children: React.ReactNode }) {
   const { preloaderActive } = usePreloader();
+  const pathname = usePathname();
+
+  // If we are on the case-01 route, we skip the preloader entirely.
+  // The user explicitly requested to remove the repeated preloader on this route.
+  const isCaseRoute = pathname?.startsWith('/hunt/case-01');
+
+  if (isCaseRoute) {
+    return <>{children}</>;
+  }
+
   return (
     <>
       {!preloaderActive && <AudioControl />}
       {children}
-      <Preloader />
+      {<Preloader />}
     </>
   );
 }

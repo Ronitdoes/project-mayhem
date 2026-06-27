@@ -14,24 +14,22 @@
   --floor-color: #0a0807;
 }
 
-* {
+.game-container *, .game-container {
   box-sizing: border-box;
-  margin: 0;
-  padding: 0;
 }
 
-body {
+.game-container {
+  margin: 0;
+  padding: 0;
   font-family: var(--font-main);
   background-color: var(--color-bg);
   color: var(--color-text);
-  overflow-x: hidden;
+  overflow: hidden;
   user-select: none;
-}
-
-#root {
   width: 100vw;
   min-height: 100vh;
   display: flex;
+  position: relative;
 }
 
 /* CRT Scanline Overlay */
