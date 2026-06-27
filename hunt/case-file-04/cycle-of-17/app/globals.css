@@ -1,0 +1,146 @@
+@import "tailwindcss";
+
+/* ─── Carnival Design System ──────────────────────────────────────────────── */
+
+:root {
+  --crimson: #dc143c;
+  --deep-crimson: #8b0000;
+  --gold: #ffd700;
+  --dark-gold: #b8860b;
+  --neon-purple: #9b30ff;
+  --deep-purple: #1a0a2e;
+  --bg-void: #0a0008;
+  --text-parchment: #e8d5b7;
+}
+
+/* ─── Base ────────────────────────────────────────────────────────────────── */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: var(--font-geist-mono), "Courier New", monospace;
+  background-color: var(--bg-void);
+  color: var(--text-parchment);
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ─── Scrollbar styling ───────────────────────────────────────────────────── */
+
+::-webkit-scrollbar {
+  width: 4px;
+}
+::-webkit-scrollbar-track {
+  background: #0a0008;
+}
+::-webkit-scrollbar-thumb {
+  background: #4a1a4a;
+  border-radius: 2px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #8b0000;
+}
+
+/* ─── Animations ──────────────────────────────────────────────────────────── */
+
+@keyframes ghost-pulse {
+  0%, 100% { opacity: 1; box-shadow: 0 0 8px #dc143c; }
+  50%       { opacity: 0.6; box-shadow: 0 0 20px #dc143c, 0 0 40px #8b0000; }
+}
+
+@keyframes gondola-glow {
+  0%   { box-shadow: 0 0 10px #ffd700, 0 0 20px #b8860b; }
+  100% { box-shadow: 0 0 0px transparent; }
+}
+
+@keyframes success-shimmer {
+  0%   { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+
+@keyframes carnival-flicker {
+  0%, 95%, 100% { opacity: 1; }
+  96%, 98%      { opacity: 0.4; }
+  97%           { opacity: 0.8; }
+}
+
+@keyframes float-up {
+  from { transform: translateY(10px); opacity: 0; }
+  to   { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes spin-slow {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+@keyframes glitch {
+  0%, 100% { clip-path: inset(0 0 0 0); transform: none; }
+  10%       { clip-path: inset(30% 0 61% 0); transform: translate(-2px, 0); }
+  20%       { clip-path: inset(50% 0 30% 0); transform: translate(2px, 0); }
+  30%       { clip-path: inset(10% 0 80% 0); transform: translate(-1px, 0); }
+  40%       { clip-path: inset(0 0 0 0); transform: none; }
+}
+
+/* ─── Utility classes ─────────────────────────────────────────────────────── */
+
+.ghost-row {
+  animation: ghost-pulse 0.6s ease-in-out;
+}
+
+.success-shimmer {
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 215, 0, 0.15) 50%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+  animation: success-shimmer 1.5s linear infinite;
+}
+
+.carnival-flicker {
+  animation: carnival-flicker 4s ease-in-out infinite;
+}
+
+.float-up {
+  animation: float-up 0.4s ease-out forwards;
+}
+
+/* ─── Selection ───────────────────────────────────────────────────────────── */
+
+::selection {
+  background: rgba(220, 20, 60, 0.3);
+  color: #ffd700;
+}
+
+/* ─── Focus styles ────────────────────────────────────────────────────────── */
+
+:focus-visible {
+  outline: 1px solid rgba(255, 215, 0, 0.5);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+/* ─── Responsive SVG ──────────────────────────────────────────────────────── */
+
+.wheel-container {
+  width: min(420px, calc(100vw - 2rem));
+  margin: 0 auto;
+}
+
+.wheel-container svg {
+  width: 100%;
+  height: auto;
+}
