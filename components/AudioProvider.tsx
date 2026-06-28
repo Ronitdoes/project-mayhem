@@ -9,6 +9,7 @@ interface AudioContextType {
   audioEnabled: boolean;
   toggleMute: () => void;
   playSFX: (type: SFXType) => void;
+  changeBGM: (url: string) => void;
 }
 
 const AudioContext = createContext<AudioContextType | undefined>(undefined);
@@ -116,6 +117,38 @@ class SciFiAudioManager {
       }
     } catch (err) {
       console.warn("Could not load custom BGM file, playing synthesized drone:", err);
+    }
+  }
+
+  async setCustomBGM(url: string) {
+    if (!this.ctx) return;
+
+    // Stop currently playing source if any
+    const now = this.ctx.currentTime;
+    if (this.bgmSource) {
+      try {
+        this.bgmSource.stop(now);
+      } catch (e) { }
+      this.bgmSource = null;
+    }
+    this.isBgmPlaying = false;
+
+    try {
+      const response = await fetch(url);
+      if (!response.ok) throw new Error(`HTTP status ${response.status}`);
+      const arrayBuffer = await response.arrayBuffer();
+
+      const decodedBuffer = await this.ctx.decodeAudioData(arrayBuffer);
+      this.bgmBuffer = decodedBuffer;
+
+      console.log("Successfully loaded new custom BGM: " + url);
+
+      // Play it if initialized and not muted
+      if (this.isInitialized && !this.isMuted) {
+        this.transitionToCustomBGM();
+      }
+    } catch (err) {
+      console.warn("Could not load custom BGM from: " + url, err);
     }
   }
 
@@ -496,8 +529,14 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const changeBGM = (url: string) => {
+    if (managerRef.current) {
+      managerRef.current.setCustomBGM(url);
+    }
+  };
+
   return (
-    <AudioContext.Provider value={{ isMuted, audioEnabled, toggleMute, playSFX }}>
+    <AudioContext.Provider value={{ isMuted, audioEnabled, toggleMute, playSFX, changeBGM }}>
       {children}
     </AudioContext.Provider>
   );

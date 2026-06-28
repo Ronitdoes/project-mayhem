@@ -1,0 +1,83 @@
+"use client";
+
+import React, { ReactNode } from "react";
+import { useCaseStore } from "../CaseFileProvider";
+import { AnswerInput } from "./AnswerInput";
+import { HintSystem } from "./HintSystem";
+import { SolvedReveal } from "./SolvedReveal";
+import { Terminal } from "lucide-react";
+
+interface PuzzleShellProps {
+  puzzleId: number;
+  title: string;
+  clue: string;
+  children: ReactNode;
+}
+
+export function PuzzleShell({ puzzleId, title, clue, children }: PuzzleShellProps) {
+  const solved = useCaseStore((state) => state.solved);
+  const isSolved = solved.includes(puzzleId);
+
+  return (
+    <div className="w-full max-w-4xl mx-auto space-y-6 pb-12 font-mono text-zinc-100 select-text">
+      {/* Puzzle Meta Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-900 pb-4 text-left">
+        <div>
+          <span className="text-[10px] text-emerald-500/70 tracking-widest uppercase">
+            // ANOMALY STABILIZATION MODULE #{String(puzzleId).padStart(2, "0")}
+          </span>
+          <h2 className="text-2xl font-bold tracking-wide text-zinc-100 font-serif uppercase">
+            {title}
+          </h2>
+        </div>
+        
+        <div className="flex items-center gap-3 shrink-0">
+          <span className="text-xs text-zinc-500">
+            MAX RECOVERY: <span className="text-emerald-400">300 PTS</span>
+          </span>
+          <span
+            className={`px-2 py-0.5 rounded text-[9px] uppercase tracking-wider font-bold border ${
+              isSolved
+                ? "bg-emerald-950/40 border-emerald-800/80 text-emerald-400"
+                : "bg-amber-950/20 border-amber-900/50 text-amber-500 animate-pulse"
+            }`}
+          >
+            {isSolved ? "STABILIZED" : "ACTIVE ANOMALY"}
+          </span>
+        </div>
+      </div>
+
+      {/* Clue briefing card */}
+      <div className="bg-zinc-950/60 border-l-2 border-emerald-500/80 p-4 rounded-r-md relative overflow-hidden">
+        <div className="absolute top-2 right-3 flex items-center gap-1.5 text-[8px] text-zinc-600 font-bold uppercase tracking-widest select-none">
+          <Terminal size={10} />
+          <span>BRIEFING</span>
+        </div>
+        <div className="text-xs text-zinc-400 leading-relaxed max-w-3xl pr-12 text-left font-mono">
+          <p id={`puzzle-clue-${puzzleId}`} className="text-zinc-300">
+            {clue}
+          </p>
+        </div>
+      </div>
+
+      {/* Interactive component child container */}
+      <div className="py-6 min-h-[200px] border border-zinc-900 bg-zinc-950/20 backdrop-blur-xs rounded-md shadow-inner flex flex-col justify-center">
+        {children}
+      </div>
+
+      {/* Submit / Solved Reveal area */}
+      <div className="pt-2">
+        {isSolved ? (
+          <SolvedReveal puzzleId={puzzleId} />
+        ) : (
+          <div className="space-y-6">
+            <AnswerInput puzzleId={puzzleId} />
+            <HintSystem puzzleId={puzzleId} />
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+export default PuzzleShell;

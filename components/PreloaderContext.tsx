@@ -135,7 +135,7 @@ export function PreloaderLayout({ children }: { children: React.ReactNode }) {
 
   // If we are on the case-01 route, we skip the preloader entirely.
   // The user explicitly requested to remove the repeated preloader on this route.
-  const isCaseRoute = pathname?.startsWith('/hunt/case-01');
+  const isCaseRoute = pathname?.startsWith('/hunt/case-');
 
   if (isCaseRoute) {
     return <>{children}</>;

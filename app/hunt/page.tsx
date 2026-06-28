@@ -16,24 +16,26 @@ export default function HuntPage() {
         {caseFiles.map((fileName, index) => {
           const num = String(index + 1).padStart(2, "0");
           return (
-            <Link
-              key={index}
-              href={
-                fileName === "Case-File-01"
-                  ? "/hunt/case-01"
-                  : fileName === "Case-File-07"
-                    ? "/hunt/case-file-07"
-                    : "#"
-              }
-              className="flex items-center justify-center h-36 md:h-44 bg-zinc-950/60 border border-zinc-800/80 rounded-xl p-6 cursor-pointer transition-all duration-300 hover:border-cyan-500/40 hover:shadow-[0_0_30px_rgba(6,182,212,0.12)] hover:-translate-y-1 group relative overflow-hidden"
-            >
-              {/* Subtle glow border effect on hover */}
-              <div className="absolute inset-0 bg-gradient-to-b from-transparent to-cyan-500/[0.02] opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-
-              <span className="font-mono text-xs md:text-sm tracking-[0.25em] text-zinc-400 group-hover:text-cyan-400 transition-colors uppercase duration-300">
-                {fileName}
-              </span>
-            </Link>
+          <Link
+            key={index}
+            href={
+              fileName === "Case-File-01"
+                ? "/hunt/case-01"
+                : fileName === "Case-File-03"
+                ? "/hunt/case-03"
+                : fileName === "Case-File-05"
+                ? "/hunt/case-05"
+                : "#"
+            }
+            className="flex items-center justify-center h-36 md:h-44 bg-zinc-950/60 border border-zinc-800/80 rounded-xl p-6 cursor-pointer transition-all duration-300 hover:border-cyan-500/40 hover:shadow-[0_0_30px_rgba(6,182,212,0.12)] hover:-translate-y-1 group relative overflow-hidden"
+          >
+            {/* Subtle glow border effect on hover */}
+            <div className="absolute inset-0 bg-gradient-to-b from-transparent to-cyan-500/[0.02] opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+            
+            <span className="font-mono text-xs md:text-sm tracking-[0.25em] text-zinc-400 group-hover:text-cyan-400 transition-colors uppercase duration-300">
+              {fileName}
+            </span>
+          </Link>
           );
         })}
       </div>

@@ -81,6 +81,22 @@ body {
 .eq-bar-3 { animation: eq-bounce-3 0.7s ease-in-out infinite; }
 .eq-bar-4 { animation: eq-bounce-4 0.5s ease-in-out infinite; }
 
+@media (prefers-reduced-motion: reduce) {
+  *, ::before, ::after {
+    animation-delay: -1ms !important;
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    background-attachment: scroll !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0s !important;
+    transition-delay: 0s !important;
+  }
+  .crt-flicker {
+    animation: none !important;
+  }
+}
+
+
 
 
 
