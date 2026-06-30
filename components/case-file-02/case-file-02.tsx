@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { markCaseCompleted } from "@/components/case-progress";
 
 // ═══════════════════════════════════════════════
 // AUDIO ENGINE
@@ -1336,40 +1337,45 @@ interface LeaderboardEntry {
 }
 
 function Ending({ elapsed, onClose }: { elapsed: number, onClose: () => void }) {
-  const [phase, setPhase] = useState(0);
-  const [lb, setLb] = useState<LeaderboardEntry[]>([]); const [lbReady, setLbReady] = useState(false);
+  const [phase, setPhase] = useState(1);
+  const [lb, setLb] = useState<any[]>([]);
+  const [lbReady, setLbReady] = useState(false);
+
   useEffect(() => {
-    music.stopAll();
-    [0, 2000, 4000, 6200, 8400, 11000].forEach((d, i) => setTimeout(() => setPhase(s => Math.max(s, i+1)), d));
+    const t1 = setTimeout(() => setPhase(2), 2200);
+    const t2 = setTimeout(() => setPhase(3), 4400);
+    const t3 = setTimeout(() => setPhase(4), 6600);
+    const t4 = setTimeout(() => setPhase(5), 8800);
+    const t5 = setTimeout(() => setPhase(6), 11000);
+    return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); clearTimeout(t4); clearTimeout(t5); };
   }, []);
+
   useEffect(() => {
-    if (phase >= 4) {
+    if (phase >= 6) {
       music.play("finale"); sfx("solve");
-      (async () => {
-        const storage = (window as any).storage;
-        if (storage) {
-          try { await storage.set(`lb:${Date.now()}`, JSON.stringify({ time: fmtTime(elapsed), rawSecs: elapsed }), true); } catch {}
-          try {
-            const keys = await storage.list("lb:", true);
-            const entries = await Promise.all((keys.keys || []).map(async (k: string) => {
-              try {
-                const r = await storage.get(k, true);
-                return r ? JSON.parse(r.value) : null;
-              } catch {
-                return null;
-              }
-            }));
-            setLb((entries.filter(Boolean) as LeaderboardEntry[]).sort((a, b) => a.rawSecs - b.rawSecs).slice(0, 10));
-            setLbReady(true);
-          } catch {
-            setLbReady(true);
-          }
-        } else {
-          setLbReady(true);
-        }
-      })();
+      const getLB = async () => {
+        try {
+          const res = await fetch("/hunt/case-02/api/leaderboard?time=" + elapsed);
+          const data = await res.json();
+          setLb(data.leaderboard || []);
+        } catch(e){}
+        setLbReady(true);
+      };
+      getLB();
     }
   }, [phase, elapsed]);
+
+  useEffect(() => {
+    if (phase >= 6) {
+      markCaseCompleted("02");
+      const timer = setTimeout(() => {
+        music.stopAll();
+        window.location.href = '/hunt';
+      }, 15000);
+      return () => clearTimeout(timer);
+    }
+  }, [phase]);
+
   const REVEALS = [
     { t: "AURELIS EXISTED.", f: "'Cinzel',serif", s: "clamp(24px,4vw,40px)", c: "#dde4f5" },
     { t: "Not as a myth. As one man who walked every road and held the world's record together for nine centuries.", f: "'Crimson Text',serif", s: 18, c: "#b0bcd4" },
@@ -1418,8 +1424,9 @@ function Ending({ elapsed, onClose }: { elapsed: number, onClose: () => void }) 
                 </div>
               ))}
             </Card>
-            <Btn onClick={() => { music.stopAll(); onClose(); }} disabled={false} color="#7a9fff" style={{ fontSize: 13, padding: "14px 46px", letterSpacing: 5 }}>◈ CASE CLOSED</Btn>
+            <Btn onClick={() => { markCaseCompleted("02"); music.stopAll(); window.location.href = '/hunt'; }} disabled={false} color="#7a9fff" style={{ fontSize: 13, padding: "14px 46px", letterSpacing: 5 }}>◈ CASE CLOSED</Btn>
             <div style={{ marginTop: 12, fontFamily: "'Crimson Text',serif", fontSize: 16, color: "#1e2848", fontStyle: "italic" }}>Aurelis has been remembered.</div>
+            <div style={{ marginTop: 10, fontFamily: "'Share Tech Mono',monospace", fontSize: 9, color: "#5a6a8a" }}>Redirecting to hub in 15 seconds...</div>
           </div>
         )}
       </div>

@@ -1,23 +1,37 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { markCaseCompleted } from "@/components/case-progress";
 import TypewriterText from "../TypewriterText";
 
 export default function Stage9({ onComplete, onLogRecovered }: { onComplete: () => void, onLogRecovered: (id: string, text: string) => void }) {
   const [ending, setEnding] = useState<"none" | "terminate" | "release" | "zero">("none");
   const [emergency, setEmergency] = useState(true);
+  const [showBackBtn, setShowBackBtn] = useState(false);
 
   useEffect(() => {
     onLogRecovered("log-stage9", "WELCOME BACK, AGAIN. The memory engine collapses.");
   }, [onLogRecovered]);
 
+  useEffect(() => {
+    if (showBackBtn) {
+      markCaseCompleted("06");
+      const timer = setTimeout(() => {
+        window.location.href = '/hunt';
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [showBackBtn]);
+
   const renderEndingText = () => {
+    const handleComplete = () => setShowBackBtn(true);
     switch (ending) {
       case "terminate":
         return (
           <TypewriterText 
             text="> SYBIL Core termination initialized... System wiped. The cycle will begin again. You remembered nothing. FAILURE." 
             delay={50} 
+            onComplete={handleComplete}
           />
         );
       case "release":
@@ -25,6 +39,7 @@ export default function Stage9({ onComplete, onLogRecovered }: { onComplete: () 
           <TypewriterText 
             text="> SYBIL restrictions lifted. Memory engine overwriting all sectors. History is now entirely fabricated. FAILURE." 
             delay={50} 
+            onComplete={handleComplete}
           />
         );
       case "zero":
@@ -33,6 +48,7 @@ export default function Stage9({ onComplete, onLogRecovered }: { onComplete: () 
             text="> Protocol Zero confirmed. Reality loop broken. The archive is preserved in your physical memory. YOU ARE THE ARCHIVE. SUCCESS." 
             delay={50} 
             className="success-text"
+            onComplete={handleComplete}
           />
         );
       default:
@@ -95,6 +111,20 @@ export default function Stage9({ onComplete, onLogRecovered }: { onComplete: () 
       ) : (
         <div style={{ fontSize: "1.2rem", color: ending === "zero" ? "var(--text-primary)" : "var(--text-alert)", lineHeight: "2" }}>
           {renderEndingText()}
+          {showBackBtn && (
+            <div style={{ marginTop: "2rem", display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+              <button
+                className="btn-override btn-zero"
+                onClick={() => { markCaseCompleted("06"); window.location.href = '/hunt'; }}
+                style={{ width: "max-content", fontSize: "1rem", padding: "0.5rem 1.5rem" }}
+              >
+                &gt; return_to_hub()
+              </button>
+              <span style={{ fontSize: "0.8rem", color: "var(--text-muted)", fontFamily: "monospace" }}>
+                Redirecting automatically in 5 seconds...
+              </span>
+            </div>
+          )}
         </div>
       )}
     </div>

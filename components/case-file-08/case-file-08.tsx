@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
+import { markCaseCompleted } from "@/components/case-progress";
 
 interface PuzzleStatus {
   ok: boolean;
@@ -1507,7 +1508,13 @@ function Finale({ elapsed, onRestart }: FinaleProps) {
         <p>Whether the gate was ever closed — the archive does not say.</p>
         <p className="fin-q">"There was never a choice. Every cabinet was leading here."</p>
       </div>
-      <button className="sp-btn" onClick={onRestart}>↺ REOPEN INVESTIGATION</button>
+      <div style={{ display: "flex", gap: "12px", justifyContent: "center", marginTop: "20px" }}>
+        <button className="sp-btn" onClick={onRestart}>↺ REOPEN</button>
+        <button className="sp-btn" onClick={() => { markCaseCompleted("08"); window.location.href = '/hunt'; }} style={{ background: "var(--gd)", color: "black" }}>◈ RETURN TO HUB</button>
+      </div>
+      <div style={{ fontSize: "10px", color: "var(--text-muted)", marginTop: "12px", textAlign: "center", fontFamily: "monospace" }}>
+        Redirecting to hub in 15 seconds...
+      </div>
     </div>
   );
 }
@@ -1528,6 +1535,16 @@ export default function App() {
     else if (ivRef.current) clearInterval(ivRef.current);
     return () => { if (ivRef.current) clearInterval(ivRef.current); };
   }, [timerOn]);
+
+  useEffect(() => {
+    if (phase === "finale") {
+      markCaseCompleted("08");
+      const timer = setTimeout(() => {
+        window.location.href = '/hunt';
+      }, 15000);
+      return () => clearTimeout(timer);
+    }
+  }, [phase]);
 
   function startGame() { setPhase("game"); setStage(0); music.start(); }
   function toggleMute() { const n = !muted; setMuted(n); music.setVol(n ? 0 : 0.13); }

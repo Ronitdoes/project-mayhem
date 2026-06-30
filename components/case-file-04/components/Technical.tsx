@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { markCaseCompleted } from "@/components/case-progress";
 import { PuzzleProps } from "../types";
 
 // ── PLAY BEEP STUB ──
@@ -178,6 +179,16 @@ export default function Technical({
       }
     }
   }, [selections, solved, onSolved, onFailed]);
+
+  useEffect(() => {
+    if (solved) {
+      markCaseCompleted("04");
+      const timer = setTimeout(() => {
+        window.location.href = '/hunt';
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [solved]);
 
   // Status message rendering
   const getStatusMessage = () => {
@@ -385,6 +396,19 @@ export default function Technical({
           <div className="text-sm font-mono leading-relaxed">
             {getStatusMessage()}
           </div>
+          {solved && (
+            <div className="mt-4 flex flex-col items-center gap-2">
+              <button
+                onClick={() => { markCaseCompleted("04"); window.location.href = '/hunt'; }}
+                className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-black font-mono text-xs font-bold uppercase tracking-wider rounded-lg border border-emerald-500 transition-all cursor-pointer shadow-[0_0_15px_rgba(16,185,129,0.2)]"
+              >
+                ◈ Return to Hub
+              </button>
+              <span className="text-[10px] text-zinc-500 font-mono">
+                Redirecting automatically in 5 seconds...
+              </span>
+            </div>
+          )}
         </div>
 
       </main>
