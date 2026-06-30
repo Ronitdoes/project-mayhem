@@ -1,12 +1,33 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 
+interface PuzzleStatus {
+  ok: boolean;
+  msg: string;
+}
+
+interface PuzzleProps {
+  wrong: () => void;
+  locked: boolean;
+  onSolve: () => void;
+}
+
 /* ── MUSIC ENGINE ── */
 function useMusicEngine() {
-  const r = useRef({ ctx: null, master: null, nodes: [], timers: [] });
-  function getCtx() {
-    if (!r.current.ctx) r.current.ctx = new (window.AudioContext || window.webkitAudioContext)();
+  const r = useRef<{
+    ctx: AudioContext | null;
+    master: GainNode | null;
+    nodes: (OscillatorNode | AudioBufferSourceNode)[];
+    timers: any[];
+  }>({ ctx: null, master: null, nodes: [], timers: [] });
+
+  function getCtx(): AudioContext {
+    if (!r.current.ctx) {
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      r.current.ctx = new AudioCtx();
+    }
     return r.current.ctx;
   }
+
   function start() {
     const ctx = getCtx();
     if (ctx.state === "suspended") ctx.resume();
@@ -14,7 +35,7 @@ function useMusicEngine() {
     r.current.master = master;
     const rev = ctx.createDelay(2.2); rev.delayTime.value = 0.09;
     const revG = ctx.createGain(); revG.gain.value = 0.28; rev.connect(revG); revG.connect(rev); revG.connect(master);
-    function drone(f, d, g) {
+    function drone(f: number, d: number, g: number) {
       const o = ctx.createOscillator(); o.type = "sine"; o.frequency.value = f; o.detune.value = d;
       const gn = ctx.createGain(); gn.gain.value = g; o.connect(gn); gn.connect(rev); gn.connect(master); o.start();
       return o;
@@ -75,7 +96,7 @@ function useMusicEngine() {
     const nsG = ctx.createGain(); nsG.gain.value = 0.012; ns.connect(bpf); bpf.connect(nsG); nsG.connect(master); ns.start();
     r.current.nodes.push(ns);
   }
-  function setVol(v) { if (r.current.master) r.current.master.gain.setTargetAtTime(v, getCtx().currentTime, 0.4); }
+  function setVol(v: number) { if (r.current.master) r.current.master.gain.setTargetAtTime(v, getCtx().currentTime, 0.4); }
   function stop() {
     r.current.timers.forEach(clearTimeout); r.current.timers = [];
     r.current.nodes.forEach(n => { try { n.stop(); } catch(e){} });
@@ -85,6 +106,7 @@ function useMusicEngine() {
   }
   return { start, stop, setVol };
 }
+
 
 /* ── PALETTE / STYLES ── */
 const S = `
@@ -346,7 +368,7 @@ const CHARS = {
   USER:      { name: "You",        avatar: "🔍",  color: "#c8e8ff" },
   VOSS:      { name: "Dir. Voss",  avatar: "👁",  color: "#ffb238" },
 };
-const SCENES = {
+const SCENES: Record<string, { c: keyof typeof CHARS; t: string }[]> = {
   intro:[
     {c:"SYSTEM",t:"ARCHIVE ACCESS INITIALISED — 03:17:44"},
     {c:"SYSTEM",t:"Loading case file... BROKEN DECK... classification depth: LEVEL IX."},
@@ -524,7 +546,11 @@ const SCENES = {
 };
 
 /* ── DIALOGUE ── */
-function Dialogue({ sceneKey, onComplete }) {
+interface DialogueProps {
+  sceneKey: string;
+  onComplete: () => void;
+}
+function Dialogue({ sceneKey, onComplete }: DialogueProps) {
   const lines = SCENES[sceneKey] || [];
   const [cur, setCur] = useState(0);
   const [typing, setTyping] = useState(true);
@@ -584,7 +610,7 @@ function Dialogue({ sceneKey, onComplete }) {
       </div>
       <div className="dlg-foot">
         <div className="dlg-dots">
-          {lines.map((_, i) => <span key={i} className={`dlg-pdot ${i === cur ? "a" : i < cur ? "d" : ""}`}/>)}
+          {lines.map((_line, i) => <span key={i} className={`dlg-pdot ${i === cur ? "a" : i < cur ? "d" : ""}`}/>)}
         </div>
         <button className="dlg-next" onClick={advance} disabled={typing}>
           {cur < lines.length - 1 ? "CONTINUE ›" : "PROCEED ›"}
@@ -595,7 +621,12 @@ function Dialogue({ sceneKey, onComplete }) {
 }
 
 /* ── COOLDOWN ── */
-function Cooldown({ seconds, reason, onDone }) {
+interface CooldownProps {
+  seconds: number;
+  reason: string;
+  onDone: () => void;
+}
+function Cooldown({ seconds, reason, onDone }: CooldownProps) {
   const [rem, setRem] = useState(seconds);
   useEffect(() => {
     const iv = setInterval(() => setRem(r => {
@@ -618,32 +649,32 @@ function Cooldown({ seconds, reason, onDone }) {
   );
 }
 
-/* ── PUZZLE SHELL ──
-   FIX: replaced manual element spread-cloning with React.cloneElement().
-   The original { ...c, props: { ...c.props, wrong, locked } } worked in practice
-   because object spread copies $$typeof, but it's non-idiomatic and triggers
-   React strict-mode warnings. React.cloneElement is the correct API and also
-   adds the key prop, eliminating the "missing key in list" console warning. */
-function Shell({ index, title, prompt, hints, children }) {
+/* ── PUZZLE SHELL ── */
+interface ShellProps {
+  index: number;
+  title: string;
+  prompt: string;
+  hints: string[];
+  children?: React.ReactNode;
+}
+function Shell({ index, title, prompt, hints, children }: ShellProps) {
   const [hintIdx, setHintIdx] = useState(-1);
-  const [used, setUsed] = useState([]);
-  const [cooldown, setCooldown] = useState(null);
+  const [used, setUsed] = useState<number[]>([]);
+  const [cooldown, setCooldown] = useState<{ s: number; r: string } | null>(null);
   const wrong = useCallback(() => setCooldown({ s: 120, r: "wrong" }), []);
   const locked = !!cooldown;
 
-  function useHint(i) {
+  function useHint(i: number) {
     if (locked || used.includes(i)) return;
     setUsed(u => [...u, i]);
     setHintIdx(i);
     setCooldown({ s: 60, r: "hint" });
   }
 
-  // FIX: use React.cloneElement to correctly inject props while preserving
-  // all existing props (including onSolve) and adding a key to silence warnings.
   const childrenWithProps = children
     ? (Array.isArray(children) ? children : [children]).map((child, i) =>
         child && typeof child === "object"
-          ? React.cloneElement(child, { key: i, wrong, locked })
+          ? React.cloneElement(child as React.ReactElement<any>, { key: i, wrong, locked })
           : child
       )
     : null;
@@ -694,12 +725,12 @@ const P1_LINES = [
   { time:"22:19", raw:"Inland.. nets..— offline.— Routing.. via.. primary.", decoded:"INLETS" },
   { time:"22:31", raw:"Final.. log—..— Experiment.. date:.. October.—. Year:.. 1972.", decoded:"OCTOBER" },
 ];
-function P1({ wrong, locked, onSolve }) {
-  const [open, setOpen] = useState(null);
+function P1({ wrong, locked, onSolve }: PuzzleProps) {
+  const [open, setOpen] = useState<number | null>(null);
   const [inp, setInp] = useState("");
-  const [st, setSt] = useState(null);
+  const [st, setSt] = useState<PuzzleStatus | null>(null);
 
-  function submit(e) {
+  function submit(e: React.FormEvent) {
     e.preventDefault();
     if (locked) return;
     const c = inp.trim().toLowerCase();
@@ -731,7 +762,16 @@ function P1({ wrong, locked, onSolve }) {
   </>);
 }
 
-const STAFF = [
+interface StaffEntry {
+  id: number;
+  name: string;
+  dept: string;
+  clr: string;
+  entry: string;
+  exit: string;
+  flag: boolean;
+}
+const STAFF: StaffEntry[] = [
   {id:1,  name:"Dr. Eleanor Marsh", dept:"Neuroscience",   clr:"B", entry:"22:05", exit:"06:10", flag:false},
   {id:2,  name:"K. Osei",           dept:"Engineering",    clr:"A", entry:"21:50", exit:"05:40", flag:false},
   {id:3,  name:"Dr. Lena Vance",    dept:"Psychology",     clr:"C", entry:"22:00", exit:"04:00", flag:false},
@@ -745,14 +785,14 @@ const STAFF = [
   {id:11, name:"Dr. P. Osei",       dept:"Chemistry",      clr:"B", entry:"22:05", exit:"04:45", flag:false},
   {id:12, name:"A. Whitmore",       dept:"Engineering",    clr:"A", entry:"22:00", exit:"05:20", flag:false},
 ];
-function P2({ wrong, locked, onSolve }) {
-  const [sel, setSel] = useState([]);
+function P2({ wrong, locked, onSolve }: PuzzleProps) {
+  const [sel, setSel] = useState<number[]>([]);
   const [inp, setInp] = useState("");
-  const [st, setSt] = useState(null);
+  const [st, setSt] = useState<PuzzleStatus | null>(null);
 
-  function toggle(id) { setSel(s => s.includes(id) ? s.filter(x => x !== id) : [...s, id]); }
+  function toggle(id: number) { setSel(s => s.includes(id) ? s.filter(x => x !== id) : [...s, id]); }
 
-  function submit(e) {
+  function submit(e: React.FormEvent) {
     e.preventDefault();
     if (locked) return;
     if (inp.trim().toUpperCase().replace(/\s/g, "") === "EK4") {
@@ -789,7 +829,15 @@ function P2({ wrong, locked, onSolve }) {
 // FIX: P3 compound id:2 formula "B" (Boron alone) and id:6 "H" (Hydrogen alone)
 // are single-atom "compounds" — valid for puzzle purposes as atomic number lookups.
 // No code change needed; documenting intent.
-const P3_COMPOUNDS = [
+interface P3Compound {
+  id: number;
+  formula: string;
+  breakdown: string;
+  sum: number;
+  letter: string;
+  impossible: boolean;
+}
+const P3_COMPOUNDS: P3Compound[] = [
   {id:1, formula:"LiH",  breakdown:"Li(3) + H(1)",     sum:4,   letter:"D", impossible:false},
   {id:2, formula:"B",    breakdown:"B(5)",              sum:5,   letter:"E", impossible:false},
   {id:3, formula:"XeF₈", breakdown:"Xe(54) + F(9)×8",  sum:126, letter:"—", impossible:true},
@@ -797,12 +845,12 @@ const P3_COMPOUNDS = [
   {id:5, formula:"Ca",   breakdown:"Ca(20)",            sum:20,  letter:"T", impossible:false},
   {id:6, formula:"H",    breakdown:"H(1)",              sum:1,   letter:"A", impossible:false},
 ];
-function P3({ wrong, locked, onSolve }) {
-  const [rev, setRev] = useState({});
+function P3({ wrong, locked, onSolve }: PuzzleProps) {
+  const [rev, setRev] = useState<Record<number, boolean>>({});
   const [inp, setInp] = useState("");
-  const [st, setSt] = useState(null);
+  const [st, setSt] = useState<PuzzleStatus | null>(null);
 
-  function submit(e) {
+  function submit(e: React.FormEvent) {
     e.preventDefault();
     if (locked) return;
     if (inp.trim().toUpperCase() === "DELTA") {
@@ -844,22 +892,29 @@ function P3({ wrong, locked, onSolve }) {
 
 // THE_GRID uses a mixed (number | string)[][] type — "?" marks the corrupted cell.
 // This is intentional; the className check `cell === "?"` correctly identifies it.
-const THE_GRID = [
+const THE_GRID: (number | string)[][] = [
   [7,3,5,2,8,1,6,4],[2,9,4,7,3,6,1,8],[6,1,8,3,9,4,"?",2],[4,7,2,9,1,8,3,6],
   [8,3,6,1,7,2,9,4],[1,5,9,4,2,7,8,3],[5,2,3,8,6,9,4,7],[3,8,7,6,4,3,2,9],
 ];
-const SL_DEFS = [
+interface SlDef {
+  id: number;
+  label: string;
+  path: [number, number][];
+  digit: number;
+  corruptAt?: [number, number];
+}
+const SL_DEFS: SlDef[] = [
   {id:1, label:"ALPHA", path:[[0,0],[1,1],[2,2],[3,3],[4,4],[5,5],[6,6],[7,7]], digit:7},
   {id:2, label:"BETA",  path:[[0,7],[1,6],[2,5],[3,4],[4,3],[5,2],[6,1],[7,0]], digit:2},
   {id:3, label:"GAMMA", path:[[0,2],[1,3],[2,6],[3,5],[4,4],[5,3],[6,2],[7,1]], digit:9, corruptAt:[2,6]},
   {id:4, label:"DELTA", path:[[0,5],[1,4],[2,3],[3,2],[4,1],[5,0],[6,7],[7,6]], digit:4},
 ];
-function P4({ wrong, locked, onSolve }) {
+function P4({ wrong, locked, onSolve }: PuzzleProps) {
   const [showGrid, setShowGrid] = useState(false);
   const [inp, setInp] = useState("");
-  const [st, setSt] = useState(null);
+  const [st, setSt] = useState<PuzzleStatus | null>(null);
 
-  function submit(e) {
+  function submit(e: React.FormEvent) {
     e.preventDefault();
     if (locked) return;
     const c = inp.trim().replace(/\s/g, "");
@@ -909,7 +964,18 @@ function P4({ wrong, locked, onSolve }) {
   </>);
 }
 
-const WITNESSES = [
+interface Statement {
+  id: string;
+  text: string;
+  true: boolean;
+}
+interface Witness {
+  id: string;
+  name: string;
+  time: string;
+  statements: Statement[];
+}
+const WITNESSES: Witness[] = [
   {id:"W1", name:"Subject 001", time:"23:00", statements:[
     {id:"W1a", text:"I entered the cabinet at exactly 22:45.", true:true},
     {id:"W1b", text:"The cabinet door closed automatically behind me.", true:true},
@@ -941,15 +1007,15 @@ const WITNESSES = [
     {id:"W5d", text:"The only word I could produce afterward was ROOM, again.", true:true},
   ]},
 ];
-function P5({ wrong, locked, onSolve }) {
-  const [openW, setOpenW] = useState(null);
-  const [flagged, setFlagged] = useState({});
+function P5({ wrong, locked, onSolve }: PuzzleProps) {
+  const [openW, setOpenW] = useState<string | null>(null);
+  const [flagged, setFlagged] = useState<Record<string, boolean>>({});
   const [inp, setInp] = useState("");
-  const [st, setSt] = useState(null);
+  const [st, setSt] = useState<PuzzleStatus | null>(null);
 
-  function toggleFlag(wid, sid) { setFlagged(f => ({ ...f, [`${wid}-${sid}`]: !f[`${wid}-${sid}`] })); }
+  function toggleFlag(wid: string, sid: string) { setFlagged(f => ({ ...f, [`${wid}-${sid}`]: !f[`${wid}-${sid}`] })); }
 
-  function submit(e) {
+  function submit(e: React.FormEvent) {
     e.preventDefault();
     if (locked) return;
     const c = inp.trim().toLowerCase().replace(/\s+/g, " ");
@@ -993,7 +1059,12 @@ function P5({ wrong, locked, onSolve }) {
   </>);
 }
 
-const ARCHIVE = {
+interface ArchiveEntry {
+  letter: string;
+  next: string | null;
+  text: string;
+}
+const ARCHIVE: Record<string, ArchiveEntry> = {
   "A-1": {letter:"N", next:"C-3", text:"Initial access log — cross-reference C-3 for continuation."},
   "C-3": {letter:"U", next:"B-7", text:"Secondary cross-file. See B-7."},
   "B-7": {letter:"L", next:"F-2", text:"Facility sub-level reference. Continue at F-2."},
@@ -1007,15 +1078,15 @@ const ARCHIVE = {
   "F-8": {letter:"Q", next:"F-2", text:"Returns to F-2 — already visited. Dead end branch."},
   "G-9": {letter:"W", next:"G-9", text:"[LOOP] — References itself. Dead end."},
 };
-function P6({ wrong, locked, onSolve }) {
-  const [visited, setVisited] = useState([]);
-  const [letters, setLetters] = useState([]);
-  const [cur, setCur] = useState("A-1");
+function P6({ wrong, locked, onSolve }: PuzzleProps) {
+  const [visited, setVisited] = useState<string[]>([]);
+  const [letters, setLetters] = useState<string[]>([]);
+  const [cur, setCur] = useState<string>("A-1");
   const [inp, setInp] = useState("");
   const [manual, setManual] = useState("");
-  const [st, setSt] = useState(null);
+  const [st, setSt] = useState<PuzzleStatus | null>(null);
 
-  function visit(code) {
+  function visit(code: string) {
     const e = ARCHIVE[code];
     if (!e) { setSt({ ok: false, msg: `No entry: ${code}` }); return; }
     setVisited(v => [...v, code]);
@@ -1023,7 +1094,7 @@ function P6({ wrong, locked, onSolve }) {
     setCur(e.next || "END");
   }
 
-  function jumpTo(e) {
+  function jumpTo(e: React.FormEvent) {
     e.preventDefault();
     const c = manual.trim().toUpperCase();
     if (!ARCHIVE[c]) { setSt({ ok: false, msg: `No entry: ${c}` }); return; }
@@ -1033,7 +1104,7 @@ function P6({ wrong, locked, onSolve }) {
 
   function reset() { setVisited([]); setLetters([]); setCur("A-1"); setSt(null); }
 
-  function submit(e) {
+  function submit(e: React.FormEvent) {
     e.preventDefault();
     if (locked) return;
     const c = inp.trim().toUpperCase().replace(/[-\s]/g, "");
@@ -1058,7 +1129,7 @@ function P6({ wrong, locked, onSolve }) {
           <div className="p6-nd">CURRENT: {visited[visited.length - 1] || "A-1"} — letter "{entry.letter}"</div>
           <div className="p6-et">{entry.text}</div>
           {entry.next
-            ? <button className="p6-fl" onClick={() => visit(entry.next)} disabled={locked}>FOLLOW → {entry.next}</button>
+            ? <button className="p6-fl" onClick={() => visit(entry.next!)} disabled={locked}>FOLLOW → {entry.next}</button>
             : <div className="p6-end">Terminal node.</div>
           }
         </div>
@@ -1082,7 +1153,12 @@ function P6({ wrong, locked, onSolve }) {
   </>);
 }
 
-const ROOMS = [
+interface Room {
+  id: number;
+  label: string;
+  adj: number[];
+}
+const ROOMS: Room[] = [
   {id:1,  label:"Wet Lab",           adj:[2,5]},
   {id:2,  label:"Electrical Vault",  adj:[1,3,6]},
   {id:3,  label:"Server Room",       adj:[2,4]},
@@ -1096,22 +1172,22 @@ const ROOMS = [
   {id:11, label:"Pressure Chamber",  adj:[10,12]},
   {id:12, label:"Director's Office", adj:[10,11]},
 ];
-const LEGEND_GIVEN = {1:"W",2:"Z",3:"T",4:"F",5:"H",6:"E",7:"R",8:"M",9:"S",10:"O",11:"I",12:"N"};
+const LEGEND_GIVEN: Record<number, string> = {1:"W",2:"Z",3:"T",4:"F",5:"H",6:"E",7:"R",8:"M",9:"S",10:"O",11:"I",12:"N"};
 const HIGHLIGHTED = [1,2,3,4,5,6,7];
 const VIOLATIONS = [[1,2],[4,8],[11,12]];
-function P7({ wrong, locked, onSolve }) {
+function P7({ wrong, locked, onSolve }: PuzzleProps) {
   // FIX: corr keys stored as numbers; JS coerces to strings in object lookups — harmless,
   // but initialising as strings makes intent explicit and avoids any linting noise.
-  const [flagV, setFlagV] = useState([]);
-  const [corr, setCorr] = useState({"2":"","4":"","8":""});
+  const [flagV, setFlagV] = useState<string[]>([]);
+  const [corr, setCorr] = useState<Record<string, string>>({"2":"","4":"","8":""});
   const [show, setShow] = useState(false);
   const [inp, setInp] = useState("");
-  const [st, setSt] = useState(null);
+  const [st, setSt] = useState<PuzzleStatus | null>(null);
 
-  function toggleV(pair) { const k = pair.join("-"); setFlagV(f => f.includes(k) ? f.filter(x => x !== k) : [...f, k]); }
-  function setC(r, v) { setCorr(c => ({ ...c, [String(r)]: v.toUpperCase().slice(0,1) })); }
+  function toggleV(pair: number[]) { const k = pair.join("-"); setFlagV(f => f.includes(k) ? f.filter(x => x !== k) : [...f, k]); }
+  function setC(r: number, v: string) { setCorr(c => ({ ...c, [String(r)]: v.toUpperCase().slice(0,1) })); }
 
-  function submit(e) {
+  function submit(e: React.FormEvent) {
     e.preventDefault();
     if (locked) return;
     if (inp.trim().toUpperCase() === "WATCHER") {
@@ -1148,8 +1224,8 @@ function P7({ wrong, locked, onSolve }) {
           <div className="p7-vh">FLAG ADJACENCY VIOLATIONS:</div>
           {VIOLATIONS.map(pair => {
             const k = pair.join("-");
-            const r1 = ROOMS.find(r => r.id === pair[0]);
-            const r2 = ROOMS.find(r => r.id === pair[1]);
+            const r1 = ROOMS.find(r => r.id === pair[0])!;
+            const r2 = ROOMS.find(r => r.id === pair[1])!;
             return (
               <button key={k} className={`p7-vp ${flagV.includes(k) ? "fl" : ""}`} onClick={() => toggleV(pair)}>
                 ⚑ Room {pair[0]} ({r1.label}) ↔ Room {pair[1]} ({r2.label})
@@ -1162,7 +1238,7 @@ function P7({ wrong, locked, onSolve }) {
             <div className="p7-ch">CORRECT LEGEND FOR ROOMS 2, 4, 8:</div>
             {[2,4,8].map(r => (
               <div key={r} className="p7-cr">
-                <span style={{fontSize:10,color:"#46402e"}}>Room {r} ({ROOMS.find(x => x.id === r).label}) — currently "{LEGEND_GIVEN[r]}" → correct:</span>
+                <span style={{fontSize:10,color:"#46402e"}}>Room {r} ({ROOMS.find(x => x.id === r)!.label}) — currently "{LEGEND_GIVEN[r]}" → correct:</span>
                 <input className="p7-ci" maxLength={1} value={corr[String(r)]} onChange={e => setC(r, e.target.value)} disabled={locked}/>
               </div>
             ))}
@@ -1178,23 +1254,30 @@ function P7({ wrong, locked, onSolve }) {
   </>);
 }
 
-const SYM_MAP = {"△":"Z","□":"E","○":"R","⬟":"O","⬡":"W","⊕":"T","⊗":"K","★":"Q","◈":"X","⬢":"A"};
-const P8_SEQS = [
+const SYM_MAP: Record<string, string> = {"△":"Z","□":"E","○":"R","⬟":"O","⬡":"W","⊕":"T","⊗":"K","★":"Q","◈":"X","⬢":"A"};
+interface P8Seq {
+  id: number;
+  rule: string;
+  seq: string[];
+  correct: string;
+  note: string;
+}
+const P8_SEQS: P8Seq[] = [
   {id:1, rule:"3-cycle repeating: ○ → □ → △ → ○ → □ → △ …",        seq:["○","□","△","○","□","★","△","○","□","△"], correct:"△", note:"Index 5: cycle position 5%3=2 → △. Intruder: ★"},
   {id:2, rule:"Even indices (0,2,4…) = ⬟ ; odd indices (1,3,5…) = □", seq:["⬟","□","⬟","□","⬟","⬟","⬟","□","⬟","□"], correct:"□", note:"Index 5 is odd → □. Intruder: ⬟ (matches even pattern)"},
   {id:3, rule:"Each symbol mirrors the one two positions before it: seq[n] = seq[n−2]", seq:["△","○","△","○","△","⊕","△","○","△","○"], correct:"○", note:"seq[5] = seq[3] = ○. Intruder: ⊕"},
   {id:4, rule:"Symbols appear in pairs before advancing: ⬡⬡ → ○○ → ⬟⬟ …", seq:["⬡","⬡","○","○","⬟","★","⬟","★","⬡","⬡"], correct:"⬟", note:"Index 5: second of ⬟⬟ pair. Intruder: ★"},
 ];
-function P8({ wrong, locked, onSolve }) {
-  const [openS, setOpenS] = useState(null);
+function P8({ wrong, locked, onSolve }: PuzzleProps) {
+  const [openS, setOpenS] = useState<number | null>(null);
   // FIX: was Array(8) in original — should be 4 entries for 4 sequences.
-  const [ans, setAns] = useState(["", "", "", ""]);
+  const [ans, setAns] = useState<string[]>(["", "", "", ""]);
   const [inp, setInp] = useState("");
-  const [st, setSt] = useState(null);
+  const [st, setSt] = useState<PuzzleStatus | null>(null);
 
-  function setA(i, v) { const a = [...ans]; a[i] = v.slice(0,2); setAns(a); }
+  function setA(i: number, v: string) { const a = [...ans]; a[i] = v.slice(0,2); setAns(a); }
 
-  function submit(e) {
+  function submit(e: React.FormEvent) {
     e.preventDefault();
     if (locked) return;
     if (inp.trim().toUpperCase() === "ZERO") {
@@ -1253,7 +1336,13 @@ function P8({ wrong, locked, onSolve }) {
   </>);
 }
 
-const DOSSIER = [
+interface DossierField {
+  id: number;
+  label: string;
+  answer: string;
+  ph: string;
+}
+const DOSSIER: DossierField[] = [
   {id:1, label:"TRANSMISSION DATE", answer:"14 OCTOBER 1972", ph:"From Puzzle 1"},
   {id:2, label:"WITNESS CODE",       answer:"EK4",            ph:"From Puzzle 2"},
   {id:3, label:"CODENAME",           answer:"DELTA",          ph:"From Puzzle 3"},
@@ -1263,18 +1352,18 @@ const DOSSIER = [
   {id:7, label:"FACILITY FOUNDED",   answer:"1967",           ph:"Spoken, not written"},
   {id:8, label:"DIRECTOR SURNAME",   answer:"VOSS",           ph:"Heard in recovered audio"},
 ];
-function P9({ wrong, locked, onSolve }) {
-  const [vals, setVals] = useState(Array(8).fill(""));
-  const [st, setSt] = useState(null);
+function P9({ wrong, locked, onSolve }: PuzzleProps) {
+  const [vals, setVals] = useState<string[]>(Array(8).fill(""));
+  const [st, setSt] = useState<PuzzleStatus | null>(null);
 
-  function setV(i, v) { const a = [...vals]; a[i] = v; setVals(a); }
+  function setV(i: number, v: string) { const a = [...vals]; a[i] = v; setVals(a); }
 
-  function submit(e) {
+  function submit(e: React.FormEvent) {
     e.preventDefault();
     if (locked) return;
     const bad = DOSSIER
       .map((b, i) => vals[i].trim().toUpperCase().replace(/\s+/g, " ") !== b.answer ? b.id : null)
-      .filter(Boolean);
+      .filter((b): b is number => b !== null);
     if (bad.length === 0) {
       setSt({ ok: true, msg: "ALL FIELDS CONFIRMED. Final dossier unlocked." });
       setTimeout(onSolve, 900);
@@ -1304,7 +1393,12 @@ function P9({ wrong, locked, onSolve }) {
 }
 
 /* ── META / HINTS ── */
-const PUZZLE_META = [
+interface PuzzleMetaItem {
+  title: string;
+  prompt: string;
+  hints: string[];
+}
+const PUZZLE_META: PuzzleMetaItem[] = [
   {title:"The Transmission Log",     prompt:"Morse encoded in punctuation has been decoded for you. Five words are anagrams of each other. The one that isn't — that's your answer.",          hints:["Compare only the decoded words (not the raw transmissions). Five share the exact same set of letters. One uses completely different letters.","The five anagrams all rearrange the same six letters. The sixth decoded word — the odd one out — is a month name.","OCTOBER is the non-anagram. The final log entry also includes the year: 1972. Full answer accepted: OCTOBER or 14 OCTOBER 1972."]},
   {title:"The Personnel Ledger",     prompt:"Find three tampered entries. The first character of each, in ledger order (top to bottom), spells your code.",                                   hints:["Start with timestamps — can someone exit before they've entered? Check the Security department entries carefully.","Clearance levels: A=highest, D=lowest. Neuroscience sub-level requires minimum clearance C. Check who's listed under Neuroscience with a D clearance.","Third contradiction: look at the name fields themselves. Staff names should only contain letters. Facility protocol doesn't allow numeric characters in name fields."]},
   {title:"The Blackboard Formula",   prompt:"Sum atomic numbers per compound. Map each sum to a letter (1=A). Discard the chemically impossible one. Read the remaining five in order.",      hints:["Noble gases — He, Ne, Ar, Kr, Xe — cannot form bonds. Any compound containing a noble gas is chemically impossible and should be discarded.","After discarding the impossible compound (XeF₈, Xe cannot bond): remaining valid sums are 4, 5, 12, 20, 1. Map: 4=D, 5=E, 12=L, 20=T, 1=A.","The five valid compounds in written order spell DELTA."]},
@@ -1317,8 +1411,12 @@ const PUZZLE_META = [
 ];
 
 /* ── SEQUENCE ── */
-const buildSeq = () => {
-  const s = [{ type: "cutscene", key: "intro" }];
+type SeqItem = 
+  | { type: "cutscene"; key: string }
+  | { type: "puzzle"; idx: number };
+
+const buildSeq = (): SeqItem[] => {
+  const s: SeqItem[] = [{ type: "cutscene", key: "intro" }];
   for (let i = 0; i < 9; i++) {
     s.push({ type: "cutscene", key: `beforeP${i + 1}` });
     s.push({ type: "puzzle", idx: i });
@@ -1328,15 +1426,22 @@ const buildSeq = () => {
   return s;
 };
 const SEQ = buildSeq();
-const PUZZLE_COMPS = [P1, P2, P3, P4, P5, P6, P7, P8, P9];
+const PUZZLE_COMPS: React.ComponentType<any>[] = [P1, P2, P3, P4, P5, P6, P7, P8, P9];
 
 /* ── HEADER ── */
-function Header({ stage, elapsed, onRestart, muted, onToggle }) {
+interface HeaderProps {
+  stage: number;
+  elapsed: number;
+  onRestart: () => void;
+  muted: boolean;
+  onToggle: () => void;
+}
+function Header({ stage, elapsed, onRestart, muted, onToggle }: HeaderProps) {
   const done = Math.max(0, Math.floor((stage - 1) / 2));
   const h = Math.floor(elapsed / 3600);
   const m = Math.floor((elapsed % 3600) / 60);
   const s2 = elapsed % 60;
-  const fmt = n => String(n).padStart(2, "0");
+  const fmt = (n: number) => String(n).padStart(2, "0");
   return (
     <div className="hd">
       <div className="hd-l">
@@ -1349,7 +1454,7 @@ function Header({ stage, elapsed, onRestart, muted, onToggle }) {
       <div className="hd-r">
         <div className="hd-timer">⏱ {fmt(h)}:{fmt(m)}:{fmt(s2)}</div>
         <div className="hd-dots">
-          {Array(9).fill(0).map((_, i) => (
+          {Array(9).fill(0).map((_val, i) => (
             <span key={i} className={`hd-dot ${i < done ? "done" : i === done ? "cur" : ""}`}/>
           ))}
         </div>
@@ -1361,7 +1466,10 @@ function Header({ stage, elapsed, onRestart, muted, onToggle }) {
 }
 
 /* ── SPLASH ── */
-function Splash({ onStart }) {
+interface SplashProps {
+  onStart: () => void;
+}
+function Splash({ onStart }: SplashProps) {
   return (
     <div className="sp">
       <div className="sp-eye">👁</div>
@@ -1375,11 +1483,15 @@ function Splash({ onStart }) {
 }
 
 /* ── FINALE ── */
-function Finale({ elapsed, onRestart }) {
+interface FinaleProps {
+  elapsed: number;
+  onRestart: () => void;
+}
+function Finale({ elapsed, onRestart }: FinaleProps) {
   const h = Math.floor(elapsed / 3600);
   const m = Math.floor((elapsed % 3600) / 60);
   const s2 = elapsed % 60;
-  const fmt = n => String(n).padStart(2, "0");
+  const fmt = (n: number) => String(n).padStart(2, "0");
   const rank = elapsed < 1800 ? "⚡ ARCHIVIST ELITE" : elapsed < 2700 ? "🔍 SENIOR INVESTIGATOR" : elapsed < 4200 ? "📁 INVESTIGATOR" : "⏳ FIELD ANALYST";
   return (
     <div className="fin fade-in">
@@ -1408,13 +1520,13 @@ export default function App() {
   const [timerOn, setTimerOn] = useState(false);
   const [muted, setMuted] = useState(false);
   const [trans, setTrans] = useState(false);
-  const ivRef = useRef(null);
+  const ivRef = useRef<any>(null);
   const music = useMusicEngine();
 
   useEffect(() => {
     if (timerOn) { ivRef.current = setInterval(() => setElapsed(e => e + 1), 1000); }
-    else clearInterval(ivRef.current);
-    return () => clearInterval(ivRef.current);
+    else if (ivRef.current) clearInterval(ivRef.current);
+    return () => { if (ivRef.current) clearInterval(ivRef.current); };
   }, [timerOn]);
 
   function startGame() { setPhase("game"); setStage(0); music.start(); }
@@ -1426,7 +1538,8 @@ export default function App() {
       const next = stage + 1;
       if (next >= SEQ.length) { setTimerOn(false); setPhase("finale"); }
       else {
-        if (SEQ[next].type === "puzzle" && !timerOn) setTimerOn(true);
+        const nextStep = SEQ[next];
+        if (nextStep && nextStep.type === "puzzle" && !timerOn) setTimerOn(true);
         setStage(next);
       }
       setTrans(false);
@@ -1445,10 +1558,10 @@ export default function App() {
         <Header stage={stage} elapsed={elapsed} onRestart={restart} muted={muted} onToggle={toggleMute}/>
         <div className="main">
           <div className="stage" style={{ opacity: trans ? 0 : 1, transition: "opacity .3s" }}>
-            {step?.type === "cutscene" && (
+            {step && step.type === "cutscene" && (
               <Dialogue key={step.key} sceneKey={step.key} onComplete={goNext}/>
             )}
-            {step?.type === "puzzle" && (() => {
+            {step && step.type === "puzzle" && (() => {
               const Comp = PUZZLE_COMPS[step.idx];
               const meta = PUZZLE_META[step.idx];
               return (

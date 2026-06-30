@@ -60,6 +60,11 @@ export async function sendClassifiedEmail({
 
   // Fallback: Local log writing for offline / demo mode
   try {
+    const isProd = process.env.NODE_ENV === 'production'
+    if (isProd) {
+      console.log(`\n[LOCAL EMAIL SIMULATOR] Simulated email to ${to} (logging to disk disabled in production)`)
+      return { success: true, id: 'simulated-resend-id-' + Math.random().toString(36).substring(2, 11), method: 'local_log' }
+    }
     const logDir = path.join(process.cwd(), 'artifacts')
     if (!fs.existsSync(logDir)) {
       fs.mkdirSync(logDir, { recursive: true })
