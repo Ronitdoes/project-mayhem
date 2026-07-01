@@ -17,7 +17,7 @@ export default function Stage1({ onComplete, onLogRecovered }: { onComplete: () 
     let interval: NodeJS.Timeout;
     if (!frozen) {
       interval = setInterval(() => {
-        const chars = "0123456789ABCDEF!@#$%^&*()_+-=[]{}|;':,./<>?";
+        const chars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
         const newMatrix = Array.from({ length: 15 }, () => 
           Array.from({ length: 40 }, () => chars[Math.floor(Math.random() * chars.length)]).join("")
         );
@@ -29,7 +29,7 @@ export default function Stage1({ onComplete, onLogRecovered }: { onComplete: () 
         clearInterval(interval);
         setFrozen(true);
         // Inject the anomaly
-        const chars = "0123456789ABCDEF!@#$%^&*()_+-=[]{}|;':,./<>?";
+        const chars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
         const finalMatrix = Array.from({ length: 15 }, () => 
           Array.from({ length: 40 }, () => chars[Math.floor(Math.random() * chars.length)]).join("")
         );
@@ -77,7 +77,7 @@ export default function Stage1({ onComplete, onLogRecovered }: { onComplete: () 
           border: "1px solid var(--text-muted)", 
           padding: "1rem", 
           fontFamily: "var(--font-mono)", 
-          fontSize: "0.85rem",
+          fontSize: "1.2rem",
           overflow: "hidden",
           whiteSpace: "pre-wrap",
           wordBreak: "break-all",
