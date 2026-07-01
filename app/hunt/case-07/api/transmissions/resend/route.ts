@@ -2,12 +2,12 @@ import { NextRequest, NextResponse } from 'next/server'
 import { isDbAvailable, db } from '@/db'
 import { emailTransmissions } from '@/db/schema'
 import { mockTransmissions } from '@/app/hunt/case-07/lib/mockDb'
-import { sendClassifiedEmail } from '@/app/hunt/case-07/lib/resend'
+import { sendClassifiedEmail } from '@/app/hunt/case-07/lib/brevo'
 import { DeadlightTransmissionEmail } from '@/app/hunt/case-07/emails/case-07'
 import { render } from '@react-email/components'
 import React from 'react'
 import { eq, desc } from 'drizzle-orm'
-import { getSession } from '@/app/hunt/case-07/lib/session'
+import { getSession, saveDemoState } from '@/app/hunt/case-07/lib/session'
 import { getClientIp, isRateLimited, verifyCsrf } from '@/app/hunt/case-07/lib/rateLimit'
 
 export async function POST(request: NextRequest) {
@@ -40,11 +40,23 @@ export async function POST(request: NextRequest) {
 
     // 3. Authenticate and enforce session-to-email ownership
     const session = await getSession()
-    if (!session || session.email !== cleanedEmail) {
+    if (!session) {
       return NextResponse.json(
-        { success: false, message: 'Unauthorized. Active session does not match requested email.' },
+        { success: false, message: 'Unauthorized. Active session not found.' },
         { status: 401 }
       )
+    }
+
+    if (session.email.toLowerCase() !== cleanedEmail) {
+      if (!isDbAvailable && session.email === 'agent@aetherion.org') {
+        session.email = cleanedEmail
+        await saveDemoState(session)
+      } else {
+        return NextResponse.json(
+          { success: false, message: 'Unauthorized. Active session does not match requested email.' },
+          { status: 401 }
+        )
+      }
     }
 
     let record: any = null
@@ -200,14 +212,14 @@ PROJECT NULL // SITE KENNEDY COMMAND HQ // 1996
 
     if (!delivery.success) {
       return NextResponse.json(
-        { success: false, message: 'Resend failed.' },
+        { success: false, message: `Resend failed: ${delivery.error || 'delivery error'}` },
         { status: 500 }
       )
     }
 
     return NextResponse.json({ success: true })
   } catch (error: any) {
-    console.error('Resend API exception:', error)
+    console.error('Transmission resend API exception:', error)
     return NextResponse.json(
       { success: false, message: 'Internal server error.' },
       { status: 500 }
