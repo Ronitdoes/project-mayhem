@@ -98,8 +98,35 @@ const CASE_COLORS = [
   },
 ];
 
+function getPermutedIndices(userId: string | null): number[] {
+  const base = [0, 1, 2, 3, 4, 5, 6, 7];
+  if (!userId) return base;
+
+  let seed = 0;
+  for (let i = 0; i < userId.length; i++) {
+    seed = (seed << 5) - seed + userId.charCodeAt(i);
+    seed |= 0;
+  }
+
+  const random = () => {
+    const x = Math.sin(seed++) * 10000;
+    return x - Math.floor(x);
+  };
+
+  const shuffled = [...base];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(random() * (i + 1));
+    const temp = shuffled[i];
+    shuffled[i] = shuffled[j];
+    shuffled[j] = temp;
+  }
+
+  return shuffled;
+}
+
 export default function HuntPage() {
   const [completedList, setCompletedList] = useState<Record<string, boolean>>({});
+  const [userId, setUserId] = useState<string | null>(null);
   
   // State for newly solved case symbol animation
   const [solvedCaseForAnim, setSolvedCaseForAnim] = useState<string | null>(null);
@@ -139,6 +166,10 @@ export default function HuntPage() {
         if (data.success && !data.authenticated) {
           window.location.href = '/';
           return;
+        }
+
+        if (data.success && data.userId) {
+          setUserId(data.userId);
         }
 
         // Fetch Case 9 state from progress DB
@@ -452,95 +483,81 @@ export default function HuntPage() {
       </h1>
 
       <div className="relative z-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 max-w-5xl w-full">
-        {caseFiles.map((fileName, index) => {
-          const num = String(index + 1).padStart(2, "0");
-          const isCompleted = completedList[num];
+        {(() => {
+          const permutedIndices = getPermutedIndices(userId);
+          const displayIndices = [...permutedIndices, 8];
 
-          if (isCompleted) {
+          return displayIndices.map((origIndex) => {
+            const num = String(origIndex + 1).padStart(2, "0");
+            const fileName = `Case-File-${num}`;
+            const isCompleted = completedList[num];
+
+            if (isCompleted) {
+              return (
+                <div
+                  key={origIndex}
+                  className="flex flex-col items-center justify-center h-36 md:h-44 bg-zinc-950/20 border border-emerald-950/40 rounded-xl p-6 relative overflow-hidden select-none cursor-not-allowed group"
+                >
+                  {/* Muted green matrix overlay */}
+                  <div className="absolute inset-0 bg-gradient-to-b from-transparent to-emerald-500/[0.01]" />
+                  
+                  <span className="font-mono text-xs md:text-sm tracking-[0.25em] text-emerald-500/25 uppercase line-through transition-colors duration-300">
+                    {fileName}
+                  </span>
+                  
+                  <div className="absolute bottom-3 right-4 font-mono text-[9px] tracking-[0.2em] text-emerald-500/60 bg-emerald-950/20 px-2 py-0.5 border border-emerald-500/20 rounded">
+                    SECURED
+                  </div>
+                </div>
+              );
+            }
+
+            // Case-File-09 requires cases 1 to 8 to be solved
+            const allOtherCasesSolved = Array.from({ length: 8 }, (_, i) => String(i + 1).padStart(2, "0"))
+              .every((n) => completedList[n] === true);
+
+            if (num === "09" && !allOtherCasesSolved) {
+              return (
+                <div
+                  key={origIndex}
+                  className="flex flex-col items-center justify-center h-36 md:h-44 bg-zinc-950/40 border border-red-950/30 rounded-xl p-6 relative overflow-hidden select-none cursor-not-allowed group"
+                >
+                  {/* Subtle red overlay */}
+                  <div className="absolute inset-0 bg-gradient-to-b from-transparent to-red-500/[0.01]" />
+                  
+                  <span className="font-mono text-xs md:text-sm tracking-[0.25em] text-red-500/20 uppercase transition-colors duration-300">
+                    {fileName}
+                  </span>
+
+                  <div className="absolute top-4 left-4 flex items-center justify-center text-red-500/40">
+                    <Lock size={14} className="animate-pulse" />
+                  </div>
+                  
+                  <div className="absolute bottom-3 right-4 font-mono text-[9px] tracking-[0.2em] text-red-500/60 bg-red-950/20 px-2 py-0.5 border border-red-500/20 rounded">
+                    LOCKED
+                  </div>
+                </div>
+              );
+            }
+
+            const colors = CASE_COLORS[origIndex] || CASE_COLORS[0];
+
             return (
-              <div
-                key={index}
-                className="flex flex-col items-center justify-center h-36 md:h-44 bg-zinc-950/20 border border-emerald-950/40 rounded-xl p-6 relative overflow-hidden select-none cursor-not-allowed group"
+              <Link
+                key={origIndex}
+                href={`/hunt/case-${num}`}
+                className={`flex items-center justify-center h-36 md:h-44 bg-zinc-950/60 border border-zinc-800/80 rounded-xl p-6 cursor-pointer transition-all duration-300 ${colors.hoverBorder} ${colors.hoverShadow} hover:-translate-y-1 group relative overflow-hidden`}
               >
-                {/* Muted green matrix overlay */}
-                <div className="absolute inset-0 bg-gradient-to-b from-transparent to-emerald-500/[0.01]" />
+                {/* Subtle glow border effect on hover */}
+                <div className={`absolute inset-0 bg-gradient-to-b from-transparent ${colors.bgGradient} opacity-0 group-hover:opacity-100 transition-opacity duration-500`} />
                 
-                <span className="font-mono text-xs md:text-sm tracking-[0.25em] text-emerald-500/25 uppercase line-through transition-colors duration-300">
+                <span className={`font-mono text-xs md:text-sm tracking-[0.25em] text-zinc-400 ${colors.textColor} transition-colors uppercase duration-300`}>
                   {fileName}
                 </span>
-                
-                <div className="absolute bottom-3 right-4 font-mono text-[9px] tracking-[0.2em] text-emerald-500/60 bg-emerald-950/20 px-2 py-0.5 border border-emerald-500/20 rounded">
-                  SECURED
-                </div>
-              </div>
+              </Link>
             );
-          }
-
-          // Case-File-09 requires cases 1 to 8 to be solved
-          const allOtherCasesSolved = Array.from({ length: 8 }, (_, i) => String(i + 1).padStart(2, "0"))
-            .every((n) => completedList[n] === true);
-
-          if (num === "09" && !allOtherCasesSolved) {
-            return (
-              <div
-                key={index}
-                className="flex flex-col items-center justify-center h-36 md:h-44 bg-zinc-950/40 border border-red-950/30 rounded-xl p-6 relative overflow-hidden select-none cursor-not-allowed group"
-              >
-                {/* Subtle red overlay */}
-                <div className="absolute inset-0 bg-gradient-to-b from-transparent to-red-500/[0.01]" />
-                
-                <span className="font-mono text-xs md:text-sm tracking-[0.25em] text-red-500/20 uppercase transition-colors duration-300">
-                  {fileName}
-                </span>
-
-                <div className="absolute top-4 left-4 flex items-center justify-center text-red-500/40">
-                  <Lock size={14} className="animate-pulse" />
-                </div>
-                
-                <div className="absolute bottom-3 right-4 font-mono text-[9px] tracking-[0.2em] text-red-500/60 bg-red-950/20 px-2 py-0.5 border border-red-500/20 rounded">
-                  LOCKED
-                </div>
-              </div>
-            );
-          }
-
-          const colors = CASE_COLORS[index] || CASE_COLORS[0];
-
-          return (
-            <Link
-              key={index}
-              href={
-                fileName === "Case-File-01"
-                  ? "/hunt/case-01"
-                  : fileName === "Case-File-02"
-                  ? "/hunt/case-02"
-                  : fileName === "Case-File-03"
-                  ? "/hunt/case-03"
-                  : fileName === "Case-File-04"
-                  ? "/hunt/case-04"
-                  : fileName === "Case-File-05"
-                  ? "/hunt/case-05"
-                  : fileName === "Case-File-06"
-                  ? "/hunt/case-06"
-                  : fileName === "Case-File-07"
-                  ? "/hunt/case-07"
-                  : fileName === "Case-File-08"
-                  ? "/hunt/case-08"
-                  : fileName === "Case-File-09"
-                  ? "/hunt/case-09"
-                  : "#"
-              }
-              className={`flex items-center justify-center h-36 md:h-44 bg-zinc-950/60 border border-zinc-800/80 rounded-xl p-6 cursor-pointer transition-all duration-300 ${colors.hoverBorder} ${colors.hoverShadow} hover:-translate-y-1 group relative overflow-hidden`}
-            >
-              {/* Subtle glow border effect on hover */}
-              <div className={`absolute inset-0 bg-gradient-to-b from-transparent ${colors.bgGradient} opacity-0 group-hover:opacity-100 transition-opacity duration-500`} />
-              
-              <span className={`font-mono text-xs md:text-sm tracking-[0.25em] text-zinc-400 ${colors.textColor} transition-colors uppercase duration-300`}>
-                {fileName}
-              </span>
-            </Link>
-          );
-        })}
+          });
+        })()}
       </div>
 
       {/* Cinematic Symbol Unlock Overlay */}

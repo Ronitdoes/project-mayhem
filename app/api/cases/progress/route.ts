@@ -53,7 +53,7 @@ export async function GET() {
     }
   }
 
-  return NextResponse.json({ success: true, authenticated: !!session, completedCases, stage1Completed });
+  return NextResponse.json({ success: true, authenticated: !!session, completedCases, stage1Completed, userId: session?.userId });
 }
 
 export async function POST(request: NextRequest) {
