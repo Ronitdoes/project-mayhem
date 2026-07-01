@@ -46,3 +46,6 @@ next-env.d.ts
 /artifacts/
 # db seeds
 db-seeds.json
+
+# local log files
+/artifacts/
