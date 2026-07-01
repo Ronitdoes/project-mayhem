@@ -234,7 +234,6 @@ export default function CaseFile09() {
   const [stage, setStage] = useState<NarrativeStage | null>(null);
   const [isGlitching, setIsGlitching] = useState(false);
   const [currentTime, setCurrentTime] = useState("");
-  const [dbAnswers, setDbAnswers] = useState<Record<string, string>>({});
 
   const [savedStage, setSavedStage] = useState<NarrativeStage>("INTRO");
   const [isStage1Done, setIsStage1Done] = useState(false);
@@ -251,26 +250,6 @@ export default function CaseFile09() {
     updateTime();
     const interval = setInterval(updateTime, 1000);
     return () => clearInterval(interval);
-  }, []);
-
-  // Load DB questions on mount
-  useEffect(() => {
-    async function loadQuestions() {
-      try {
-        const res = await fetch("/api/questions?caseId=09");
-        const data = await res.json();
-        if (data.success && data.questions) {
-          const answers: Record<string, string> = {};
-          data.questions.forEach((q: any) => {
-            answers[q.puzzleKey] = q.answer;
-          });
-          setDbAnswers(answers);
-        }
-      } catch (err) {
-        console.error("Failed to load Case 9 questions:", err);
-      }
-    }
-    loadQuestions();
   }, []);
 
   // Hydrate stage on mount - load from DB first, then advance based on furthest unlocked
@@ -622,7 +601,6 @@ export default function CaseFile09() {
                   <ArchiveFragmentPanel
                     storyText={STAGE_2_STORY_TEXT}
                     filePath="/assets/files/NULL.txt"
-                    expectedAnswer={dbAnswers.stage2 || "NULLEVENT"}
                     hints={STAGE_2_HINTS}
                     fileSize="216 Bytes"
                     statusText="No visible characters"
@@ -635,7 +613,7 @@ export default function CaseFile09() {
                 </div>
               ) : stage === "QUIZ_3" ? (
                 <div className="w-full flex flex-col items-center">
-                  <MorseStage onSolve={handleQuiz3Solved} expectedAnswer={dbAnswers.morse || "THE ARCHIVE REMEMBERS WHAT WE FORGOT"} />
+                  <MorseStage onSolve={handleQuiz3Solved} />
                 </div>
               ) : stage === "COMPLETION" ? (
                 <div className="w-full max-w-xl border border-emerald-500/35 bg-zinc-950/75 backdrop-blur-md rounded-2xl p-6 md:p-8 shadow-[0_30px_70px_rgba(0,0,0,0.85)] text-center relative overflow-hidden">

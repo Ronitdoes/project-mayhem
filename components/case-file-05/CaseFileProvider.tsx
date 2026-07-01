@@ -29,7 +29,6 @@ export function CaseFileProvider({ children }: CaseFileProviderProps) {
             );
             if (p) {
               p.clue = q.question;
-              p.answer = q.answer;
             }
           });
         }

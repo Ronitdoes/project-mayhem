@@ -12,32 +12,36 @@ interface ForgottenHymnProps {
 function ForgottenHymn({ activeAnomaly, onSolve }: ForgottenHymnProps) {
   const [answer, setAnswer] = useState('');
   const [error, setError] = useState(false);
-  const [correctAnswer, setCorrectAnswer] = useState('flame');
+  const [isVerifying, setIsVerifying] = useState(false);
 
-  useEffect(() => {
-    async function loadAnswer() {
-      try {
-        const res = await fetch("/api/questions?caseId=03");
-        const data = await res.json();
-        if (data.success && data.questions) {
-          const q = data.questions.find((x: any) => x.puzzleKey === "caesar_scroll");
-          if (q) setCorrectAnswer(q.answer.toLowerCase());
-        }
-      } catch (e) {
-        console.error(e);
-      }
-    }
-    loadAnswer();
-  }, []);
-
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (answer.toLowerCase().trim() === correctAnswer) {
-      setError(false);
-      onSolve();
-    } else {
+    if (isVerifying) return;
+    setIsVerifying(true);
+    try {
+      const res = await fetch("/api/questions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          caseId: "03",
+          puzzleKey: "caesar_scroll",
+          answer: answer
+        })
+      });
+      const data = await res.json();
+      if (data.success && data.correct) {
+        setError(false);
+        onSolve();
+      } else {
+        setError(true);
+        setTimeout(() => setError(false), 2000);
+      }
+    } catch (err) {
+      console.error(err);
       setError(true);
       setTimeout(() => setError(false), 2000);
+    } finally {
+      setIsVerifying(false);
     }
   };
 
@@ -306,28 +310,12 @@ function ChronicleReconstruction({ activeAnomaly, onSolve }: ChronicleProps) {
   const [items, setItems] = useState<ParaItem[]>([]);
   const [answer, setAnswer] = useState('');
   const [error, setError] = useState(false);
-  const [correctAnswer, setCorrectAnswer] = useState('light leads only the worthy home');
+  const [isVerifying, setIsVerifying] = useState(false);
 
   useEffect(() => {
     // Shuffle items once on load
     const shuffled = [...CHRONICLES_INITIAL].sort(() => Math.random() - 0.5);
     setItems(shuffled);
-  }, []);
-
-  useEffect(() => {
-    async function loadAnswer() {
-      try {
-        const res = await fetch("/api/questions?caseId=03");
-        const data = await res.json();
-        if (data.success && data.questions) {
-          const q = data.questions.find((x: any) => x.puzzleKey === "chronicle_sort");
-          if (q) setCorrectAnswer(q.answer.toLowerCase());
-        }
-      } catch (e) {
-        console.error(e);
-      }
-    }
-    loadAnswer();
   }, []);
 
   const moveItem = (index: number, direction: 'up' | 'down') => {
@@ -343,15 +331,34 @@ function ChronicleReconstruction({ activeAnomaly, onSolve }: ChronicleProps) {
 
   const isCorrectOrder = items.every((item, idx) => item.order === idx);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const cleanAnswer = answer.toLowerCase().trim().replace(/\s+/g, ' ');
-    if (cleanAnswer === correctAnswer) {
-      setError(false);
-      onSolve();
-    } else {
+    if (isVerifying) return;
+    setIsVerifying(true);
+    try {
+      const res = await fetch("/api/questions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          caseId: "03",
+          puzzleKey: "chronicle_sort",
+          answer: answer
+        })
+      });
+      const data = await res.json();
+      if (data.success && data.correct) {
+        setError(false);
+        onSolve();
+      } else {
+        setError(true);
+        setTimeout(() => setError(false), 2000);
+      }
+    } catch (err) {
+      console.error(err);
       setError(true);
       setTimeout(() => setError(false), 2000);
+    } finally {
+      setIsVerifying(false);
     }
   };
 

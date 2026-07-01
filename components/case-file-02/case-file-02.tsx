@@ -1179,6 +1179,7 @@ function PuzzleCrossword({ onSolve, onPenalty }: { onSolve: () => void, onPenalt
   const [solved, setSolved] = useState(false);
   const { cd, active: cdActive, trigger: triggerCd } = useCooldown(120);
   const [attempts, setAttempts] = useState(0); const [hints, setHints] = useState(false);
+  const [correctWords, setCorrectWords] = useState<boolean[]>(Array(9).fill(false));
 
   useEffect(() => {
     async function loadCw() {
@@ -1186,18 +1187,17 @@ function PuzzleCrossword({ onSolve, onPenalty }: { onSolve: () => void, onPenalt
         const res = await fetch("/api/questions?caseId=02");
         const data = await res.json();
         if (data.success && data.questions) {
-          const loaded = data.questions
+          const sorted = [...data.questions]
             .filter((q: any) => q.puzzleKey !== "cw_keyword")
-            .map((q: any) => ({
-              clue: q.question,
-              answer: q.answer,
-              keyLetter: q.answer ? q.answer[0] : ""
-            }));
-          const kw = data.questions.find((q: any) => q.puzzleKey === "cw_keyword")?.answer || "TORECOVER";
+            .sort((a: any, b: any) => String(a.puzzleKey).localeCompare(String(b.puzzleKey)));
+          const loaded = sorted.map((q: any) => ({
+            clue: q.question,
+            answer: "",
+            keyLetter: ""
+          }));
           if (loaded.length > 0) {
             setCwData(loaded);
             setVals(loaded.map(() => ""));
-            setCwKeyword(kw);
           }
         }
       } catch (err) {
@@ -1207,24 +1207,41 @@ function PuzzleCrossword({ onSolve, onPenalty }: { onSolve: () => void, onPenalt
     loadCw();
   }, []);
 
-  const submit = () => {
+  const submit = async () => {
     if (cdActive) return;
-    const ok = cwData.every((c, i) => vals[i].trim().toUpperCase() === c.answer);
-    if (ok) { setSolved(true); return; }
+    try {
+      const results = await Promise.all(cwData.map(async (c, i) => {
+        const res = await fetch("/api/questions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ caseId: "02", puzzleKey: `cw_${i}`, answer: vals[i] })
+        });
+        const data = await res.json();
+        return !!(data.success && data.correct);
+      }));
+      setCorrectWords(results);
+      const ok = results.every(Boolean);
+      if (ok) {
+        setSolved(true);
+        return;
+      }
+    } catch (err) {
+      console.error("Verification failed:", err);
+    }
     const a = attempts + 1; setAttempts(a); onPenalty(); triggerCd(); sfx("error");
     setErr(a >= 2 ? "Still wrong — hints available below." : "One or more answers are incorrect.");
     if (a >= 2) setHints(true);
   };
-  const keyword = cwData.map((c, i) => { const v = vals[i].trim().toUpperCase(); return v === c.answer ? c.keyLetter : (v.length > 0 ? v[0] : "_"); }).join("");
+  const keyword = cwData.map((c, i) => { const v = vals[i].trim().toUpperCase(); return correctWords[i] ? (v[0] || "_") : "_"; }).join("");
   return (
     <PuzzleShell title="Recovery Protocol" era="PROJECT NULL · ARCHIVE LOG 09" intro="Recover each missing word. The first letter of every recovered word reveals the next directive.">
       <CooldownOverlay cd={cd} />
-      {solved ? <SolvedCard word={`${cwKeyword || "TO RECOVER"}. The directive was never written outright — it survived only in the initials.`} fragLabel={`${cwKeyword || "TO RECOVER"} — FRAGMENT VI`} fragColor="#cc3344" onReturn={onSolve} /> : (
+      {solved ? <SolvedCard word="TO RECOVER. The directive was never written outright — it survived only in the initials." fragLabel="TO RECOVER — FRAGMENT VI" fragColor="#cc3344" onReturn={onSolve} /> : (
         <>
           <Card glow="#1e2848" style={{ marginBottom: 16, background: "#08091a", borderColor: "#1e2848", padding: "16px 20px" }}>
             <Label>ACROSTIC KEY — FIRST LETTER OF EACH ANSWER</Label>
             <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginBottom: 10 }}>
-              {cwData.map((c, i) => { const v = vals[i].trim().toUpperCase(); const ok = v === c.answer; const fl = ok ? c.keyLetter : (v.length > 0 ? v[0] : "_"); return <div key={i} style={{ width: 34, height: 42, display: "flex", alignItems: "center", justifyContent: "center", background: "#050610", border: `1px solid ${ok ? "#4a7aff44" : "#14182e"}`, flexDirection: "column", gap: 2 }}><span style={{ fontFamily: "'Share Tech Mono',monospace", fontSize: 17, color: ok ? "#7a9fff" : "#1e2848", transition: "color .3s" }}>{fl}</span><span style={{ fontFamily: "'Share Tech Mono',monospace", fontSize: 7, color: "#1e2848" }}>{i + 1}</span></div>; })}
+              {cwData.map((c, i) => { const v = vals[i].trim().toUpperCase(); const ok = correctWords[i]; const fl = ok ? (v[0] || "_") : "_"; return <div key={i} style={{ width: 34, height: 42, display: "flex", alignItems: "center", justifyContent: "center", background: "#050610", border: `1px solid ${ok ? "#4a7aff44" : "#14182e"}`, flexDirection: "column", gap: 2 }}><span style={{ fontFamily: "'Share Tech Mono',monospace", fontSize: 17, color: ok ? "#7a9fff" : "#1e2848", transition: "color .3s" }}>{fl}</span><span style={{ fontFamily: "'Share Tech Mono',monospace", fontSize: 7, color: "#1e2848" }}>{i + 1}</span></div>; })}
             </div>
             <div style={{ fontFamily: "'Share Tech Mono',monospace", fontSize: 13, color: "#4a7aff", letterSpacing: 5 }}>{keyword}</div>
           </Card>

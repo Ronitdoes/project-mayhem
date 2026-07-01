@@ -3,10 +3,11 @@
 import { useState, useEffect } from "react";
 import TypewriterText from "../TypewriterText";
 
-export default function Stage7({ onComplete, onLogRecovered, expectedAnswer = "7" }: { onComplete: () => void, onLogRecovered: (id: string, text: string) => void, expectedAnswer?: string }) {
+export default function Stage7({ onComplete, onLogRecovered }: { onComplete: () => void, onLogRecovered: (id: string, text: string) => void }) {
   const [inputValue, setInputValue] = useState("");
   const [error, setError] = useState(false);
   const [dataPoint, setDataPoint] = useState("");
+  const [isVerifying, setIsVerifying] = useState(false);
 
   const dataStream = [
     "00000111",
@@ -27,15 +28,36 @@ export default function Stage7({ onComplete, onLogRecovered, expectedAnswer = "7
     return () => clearInterval(interval);
   }, [dataStream]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (inputValue.trim().toLowerCase() === expectedAnswer.toLowerCase()) {
-      onLogRecovered("log-stage7", "Intelligence is recognizing patterns that survive translation.");
-      onComplete();
-    } else {
+    if (isVerifying) return;
+    setIsVerifying(true);
+    try {
+      const res = await fetch("/api/questions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          caseId: "06",
+          puzzleKey: "stage7",
+          answer: inputValue
+        })
+      });
+      const data = await res.json();
+      if (data.success && data.correct) {
+        onLogRecovered("log-stage7", "Intelligence is recognizing patterns that survive translation.");
+        onComplete();
+      } else {
+        setError(true);
+        setTimeout(() => setError(false), 500);
+        setInputValue("");
+      }
+    } catch (err) {
+      console.error(err);
       setError(true);
       setTimeout(() => setError(false), 500);
       setInputValue("");
+    } finally {
+      setIsVerifying(false);
     }
   };
 

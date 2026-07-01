@@ -189,47 +189,52 @@ export default function AudioGame({
     };
   }, []);
 
-  const [correctPasscode, setCorrectPasscode] = useState("CRIMSON");
-
-  useEffect(() => {
-    async function load() {
-      try {
-        const res = await fetch("/api/questions?caseId=04");
-        const data = await res.json();
-        if (data.success && data.questions) {
-          const q = data.questions.find((x: any) => x.puzzleKey === "audio_game");
-          if (q) setCorrectPasscode(q.answer.toUpperCase());
-        }
-      } catch (e) {
-        console.error(e);
-      }
-    }
-    load();
-  }, []);
+  const [isVerifying, setIsVerifying] = useState(false);
 
   // ── SUBMIT VERIFICATION ──
-  const handleVerify = () => {
-    if (disabled || isSolvedState) return;
-    const cleanInput = passcode.trim().toUpperCase();
+  const handleVerify = async () => {
+    if (disabled || isSolvedState || isVerifying) return;
+    setIsVerifying(true);
 
-    if (cleanInput === correctPasscode) {
-      playBeep(900, 0.2);
-      setIsSolvedState(true);
-      setIsModalOpen(false);
-      setFeedback("");
-      if (audioRef.current) {
-        audioRef.current.pause();
+    try {
+      const res = await fetch("/api/questions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          caseId: "04",
+          puzzleKey: "audio_game",
+          answer: passcode
+        })
+      });
+      const data = await res.json();
+      if (data.success && data.correct) {
+        playBeep(900, 0.2);
+        setIsSolvedState(true);
+        setIsModalOpen(false);
+        setFeedback("");
+        if (audioRef.current) {
+          audioRef.current.pause();
+        }
+        setIsPlaying(false);
+        if (onSolved) {
+          onSolved();
+        }
+      } else {
+        playBeep(250, 0.25);
+        setFeedback("ACCESS DECRPTION FAILED. SEQUENCE MISMATCH.");
+        if (onFailed) {
+          onFailed();
+        }
       }
-      setIsPlaying(false);
-      if (onSolved) {
-        onSolved();
-      }
-    } else {
+    } catch (err) {
+      console.error(err);
       playBeep(250, 0.25);
-      setFeedback("ACCESS DECRPTION FAILED. SEQUENCE MISMATCH.");
+      setFeedback("ACCESS DECRPTION FAILED. CONNECTION ERROR.");
       if (onFailed) {
         onFailed();
       }
+    } finally {
+      setIsVerifying(false);
     }
   };
 

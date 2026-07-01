@@ -71,7 +71,7 @@ function LightsOutPuzzle({ activeAnomaly, onSolve }: LightsOutPuzzleProps) {
 interface QuestionPuzzleProps {
   activeAnomaly: {
     question?: string;
-    answer?: string;
+    puzzleKey?: string;
   };
   onSolve: () => void;
 }
@@ -79,16 +79,37 @@ interface QuestionPuzzleProps {
 function QuestionPuzzle({ activeAnomaly, onSolve }: QuestionPuzzleProps) {
   const [answer, setAnswer] = useState<string>('');
   const [error, setError] = useState<boolean>(false);
+  const [isVerifying, setIsVerifying] = useState<boolean>(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (answer.toLowerCase().trim() === (activeAnomaly.answer || '').toLowerCase()) {
-      setAnswer('');
-      setError(false);
-      onSolve();
-    } else {
+    if (isVerifying) return;
+    setIsVerifying(true);
+    try {
+      const res = await fetch("/api/questions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          caseId: "01",
+          puzzleKey: activeAnomaly.puzzleKey,
+          answer: answer
+        })
+      });
+      const data = await res.json();
+      if (data.success && data.correct) {
+        setAnswer('');
+        setError(false);
+        onSolve();
+      } else {
+        setError(true);
+        setTimeout(() => setError(false), 2000);
+      }
+    } catch (err) {
+      console.error("Failed to verify Case 1 answer:", err);
       setError(true);
       setTimeout(() => setError(false), 2000);
+    } finally {
+      setIsVerifying(false);
     }
   };
 

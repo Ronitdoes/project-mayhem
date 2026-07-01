@@ -8,7 +8,6 @@ import { Terminal, Shield } from "lucide-react";
 interface ArchiveFragmentPanelProps {
   storyText: string;
   filePath: string;
-  expectedAnswer: string;
   hints: string[];
   fileSize?: string;
   statusText?: string;
@@ -18,7 +17,6 @@ interface ArchiveFragmentPanelProps {
 export function ArchiveFragmentPanel({
   storyText,
   filePath,
-  expectedAnswer,
   hints,
   fileSize = "216 Bytes",
   statusText = "No visible characters",
@@ -79,7 +77,7 @@ export function ArchiveFragmentPanel({
           />
 
           {/* Answer input */}
-          <AnswerInput expectedAnswer={expectedAnswer} onSubmit={handleCorrectSubmit} />
+          <AnswerInput onSubmit={handleCorrectSubmit} />
 
           {/* Hint panel */}
           <HintPanel hints={hints} />

@@ -151,41 +151,48 @@ export default function ShootingRangeLogsPuzzle({
     playSound("onSourceHint");
   };
 
-  const [correctAnswer, setCorrectAnswer] = useState("INTRUDER_17");
+  const [isVerifying, setIsVerifying] = useState(false);
 
-  useEffect(() => {
-    async function load() {
-      try {
-        const res = await fetch("/api/questions?caseId=04");
-        const data = await res.json();
-        if (data.success && data.questions) {
-          const q = data.questions.find((x: any) => x.puzzleKey === "shooting_range_logs");
-          if (q) setCorrectAnswer(q.answer.toUpperCase());
-        }
-      } catch (e) {
-        console.error(e);
-      }
-    }
-    load();
-  }, []);
-
-  const verifyPuzzleAnswer = (e: React.FormEvent) => {
+  const verifyPuzzleAnswer = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (disabled) return;
+    if (disabled || isVerifying) return;
+    setIsVerifying(true);
 
-    if (answerInput.trim().toUpperCase() === correctAnswer) {
-      setStatusState("SUCCESS");
-      playSound("onCorrect");
-      if (onSolved) {
-        onSolved();
+    try {
+      const res = await fetch("/api/questions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          caseId: "04",
+          puzzleKey: "shooting_range_logs",
+          answer: answerInput
+        })
+      });
+      const data = await res.json();
+      if (data.success && data.correct) {
+        setStatusState("SUCCESS");
+        playSound("onCorrect");
+        if (onSolved) {
+          onSolved();
+        }
+      } else {
+        setStatusState("FAIL");
+        playSound("onFail");
+        if (onFailed) {
+          onFailed();
+        }
+        setTimeout(() => setStatusState("IDLE"), 3000);
       }
-    } else {
+    } catch (err) {
+      console.error(err);
       setStatusState("FAIL");
       playSound("onFail");
       if (onFailed) {
         onFailed();
       }
       setTimeout(() => setStatusState("IDLE"), 3000);
+    } finally {
+      setIsVerifying(false);
     }
   };
 

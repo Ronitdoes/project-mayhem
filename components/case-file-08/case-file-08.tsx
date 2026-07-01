@@ -731,17 +731,30 @@ function P1({ wrong, locked, onSolve, dbAnswers = {} }: PuzzleProps & { dbAnswer
   const [inp, setInp] = useState("");
   const [st, setSt] = useState<PuzzleStatus | null>(null);
 
-  function submit(e: React.FormEvent) {
+  const [isVerifying, setIsVerifying] = useState(false);
+
+  async function submit(e: React.FormEvent) {
     e.preventDefault();
-    if (locked) return;
-    const c = inp.trim().toLowerCase();
-    const expected = (dbAnswers.p1 || "october").toLowerCase();
-    if ([expected, "14 october 1972", "14-oct-1972"].includes(c)) {
-      setSt({ ok: true, msg: "Confirmed — OCTOBER is the non-anagram. Transmission date verified." });
-      setTimeout(onSolve, 700);
-    } else {
-      setSt({ ok: false, msg: "Not quite. Check which decoded word uses a completely different set of letters from the others." });
-      wrong();
+    if (locked || isVerifying) return;
+    setIsVerifying(true);
+    try {
+      const res = await fetch("/api/questions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ caseId: "08", puzzleKey: "p1", answer: inp })
+      });
+      const data = await res.json();
+      if (data.success && data.correct) {
+        setSt({ ok: true, msg: "Confirmed — verified." });
+        setTimeout(onSolve, 700);
+      } else {
+        setSt({ ok: false, msg: "Not quite. Check which decoded word uses a completely different set of letters from the others." });
+        wrong();
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsVerifying(false);
     }
   }
 
@@ -794,16 +807,30 @@ function P2({ wrong, locked, onSolve, dbAnswers = {} }: PuzzleProps & { dbAnswer
 
   function toggle(id: number) { setSel(s => s.includes(id) ? s.filter(x => x !== id) : [...s, id]); }
 
-  function submit(e: React.FormEvent) {
+  const [isVerifying, setIsVerifying] = useState(false);
+
+  async function submit(e: React.FormEvent) {
     e.preventDefault();
-    if (locked) return;
-    const expected = (dbAnswers.p2 || "EK4").toUpperCase();
-    if (inp.trim().toUpperCase().replace(/\s/g, "") === expected) {
-      setSt({ ok: true, msg: `Three contradictions confirmed. Code ${expected} verified.` });
-      setTimeout(onSolve, 700);
-    } else {
-      setSt({ ok: false, msg: "Incorrect. Order matters — read initials as they appear in the ledger, top to bottom." });
-      wrong();
+    if (locked || isVerifying) return;
+    setIsVerifying(true);
+    try {
+      const res = await fetch("/api/questions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ caseId: "08", puzzleKey: "p2", answer: inp })
+      });
+      const data = await res.json();
+      if (data.success && data.correct) {
+        setSt({ ok: true, msg: `Three contradictions confirmed.` });
+        setTimeout(onSolve, 700);
+      } else {
+        setSt({ ok: false, msg: "Incorrect. Order matters — read initials as they appear in the ledger, top to bottom." });
+        wrong();
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsVerifying(false);
     }
   }
 
@@ -853,16 +880,30 @@ function P3({ wrong, locked, onSolve, dbAnswers = {} }: PuzzleProps & { dbAnswer
   const [inp, setInp] = useState("");
   const [st, setSt] = useState<PuzzleStatus | null>(null);
 
-  function submit(e: React.FormEvent) {
+  const [isVerifying, setIsVerifying] = useState(false);
+
+  async function submit(e: React.FormEvent) {
     e.preventDefault();
-    if (locked) return;
-    const expected = (dbAnswers.p3 || "DELTA").toUpperCase();
-    if (inp.trim().toUpperCase() === expected) {
-      setSt({ ok: true, msg: `Codename confirmed — ${expected}.` });
-      setTimeout(onSolve, 700);
-    } else {
-      setSt({ ok: false, msg: "Not quite. Skip the impossible compound, then read the remaining five letters in written order." });
-      wrong();
+    if (locked || isVerifying) return;
+    setIsVerifying(true);
+    try {
+      const res = await fetch("/api/questions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ caseId: "08", puzzleKey: "p3", answer: inp })
+      });
+      const data = await res.json();
+      if (data.success && data.correct) {
+        setSt({ ok: true, msg: `Codename confirmed.` });
+        setTimeout(onSolve, 700);
+      } else {
+        setSt({ ok: false, msg: "Not quite. Skip the impossible compound, then read the remaining five letters in written order." });
+        wrong();
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsVerifying(false);
     }
   }
 
@@ -918,18 +959,30 @@ function P4({ wrong, locked, onSolve, dbAnswers = {} }: PuzzleProps & { dbAnswer
   const [inp, setInp] = useState("");
   const [st, setSt] = useState<PuzzleStatus | null>(null);
 
-  function submit(e: React.FormEvent) {
+  const [isVerifying, setIsVerifying] = useState(false);
+
+  async function submit(e: React.FormEvent) {
     e.preventDefault();
-    if (locked) return;
-    const c = inp.trim().replace(/\s/g, "");
-    const expected = dbAnswers.p4 || "7294";
-    const expectedDashed = expected.split("").join("-");
-    if (c === expected || c === expectedDashed) {
-      setSt({ ok: true, msg: `PIN confirmed — ${expected}.` });
-      setTimeout(onSolve, 700);
-    } else {
-      setSt({ ok: false, msg: "Incorrect. Recover the corrupted cell first using the mirror rule, then average all four scan lines." });
-      wrong();
+    if (locked || isVerifying) return;
+    setIsVerifying(true);
+    try {
+      const res = await fetch("/api/questions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ caseId: "08", puzzleKey: "p4", answer: inp })
+      });
+      const data = await res.json();
+      if (data.success && data.correct) {
+        setSt({ ok: true, msg: `PIN confirmed.` });
+        setTimeout(onSolve, 700);
+      } else {
+        setSt({ ok: false, msg: "Incorrect. Recover the corrupted cell first using the mirror rule, then average all four scan lines." });
+        wrong();
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsVerifying(false);
     }
   }
 
@@ -1021,18 +1074,30 @@ function P5({ wrong, locked, onSolve, dbAnswers = {} }: PuzzleProps & { dbAnswer
 
   function toggleFlag(wid: string, sid: string) { setFlagged(f => ({ ...f, [`${wid}-${sid}`]: !f[`${wid}-${sid}`] })); }
 
-  function submit(e: React.FormEvent) {
+  const [isVerifying, setIsVerifying] = useState(false);
+
+  async function submit(e: React.FormEvent) {
     e.preventDefault();
-    if (locked) return;
-    const c = inp.trim().toLowerCase().replace(/\s+/g, " ");
-    const expected = (dbAnswers.p5 || "the null room").toLowerCase();
-    const baseExpected = expected.replace("the ", "");
-    if ([expected, baseExpected].includes(c)) {
-      setSt({ ok: true, msg: `Location confirmed — ${expected.toUpperCase()}.` });
-      setTimeout(onSolve, 700);
-    } else {
-      setSt({ ok: false, msg: "Not quite. Find one lie per witness. The key word in each of the first three witnesses' true statements (in witness order) gives you the answer." });
-      wrong();
+    if (locked || isVerifying) return;
+    setIsVerifying(true);
+    try {
+      const res = await fetch("/api/questions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ caseId: "08", puzzleKey: "p5", answer: inp })
+      });
+      const data = await res.json();
+      if (data.success && data.correct) {
+        setSt({ ok: true, msg: `Location confirmed.` });
+        setTimeout(onSolve, 700);
+      } else {
+        setSt({ ok: false, msg: "Not quite. Find one lie per witness. The key word in each of the first three witnesses' true statements (in witness order) gives you the answer." });
+        wrong();
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsVerifying(false);
     }
   }
 
@@ -1112,17 +1177,30 @@ function P6({ wrong, locked, onSolve, dbAnswers = {} }: PuzzleProps & { dbAnswer
 
   function reset() { setVisited([]); setLetters([]); setCur("A-1"); setSt(null); }
 
-  function submit(e: React.FormEvent) {
+  const [isVerifying, setIsVerifying] = useState(false);
+
+  async function submit(e: React.FormEvent) {
     e.preventDefault();
-    if (locked) return;
-    const c = inp.trim().toUpperCase().replace(/[-\s]/g, "");
-    const expected = (dbAnswers.p6 || "NULLGATE").toUpperCase().replace(/[-\s]/g, "");
-    if (c === expected) {
-      setSt({ ok: true, msg: "Project name confirmed — NULL-GATE." });
-      setTimeout(onSolve, 700);
-    } else {
-      setSt({ ok: false, msg: "Incorrect. The valid chain has exactly 8 stops. Dead ends loop — if you've revisited a node, backtrack." });
-      wrong();
+    if (locked || isVerifying) return;
+    setIsVerifying(true);
+    try {
+      const res = await fetch("/api/questions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ caseId: "08", puzzleKey: "p6", answer: inp })
+      });
+      const data = await res.json();
+      if (data.success && data.correct) {
+        setSt({ ok: true, msg: "Project name confirmed — NULL-GATE." });
+        setTimeout(onSolve, 700);
+      } else {
+        setSt({ ok: false, msg: "Incorrect. The valid chain has exactly 8 stops. Dead ends loop — if you've revisited a node, backtrack." });
+        wrong();
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsVerifying(false);
     }
   }
 
@@ -1196,16 +1274,30 @@ function P7({ wrong, locked, onSolve, dbAnswers = {} }: PuzzleProps & { dbAnswer
   function toggleV(pair: number[]) { const k = pair.join("-"); setFlagV(f => f.includes(k) ? f.filter(x => x !== k) : [...f, k]); }
   function setC(r: number, v: string) { setCorr(c => ({ ...c, [String(r)]: v.toUpperCase().slice(0,1) })); }
 
-  function submit(e: React.FormEvent) {
+  const [isVerifying, setIsVerifying] = useState(false);
+
+  async function submit(e: React.FormEvent) {
     e.preventDefault();
-    if (locked) return;
-    const expected = (dbAnswers.p7 || "WATCHER").toUpperCase();
-    if (inp.trim().toUpperCase() === expected) {
-      setSt({ ok: true, msg: `Blueprint cipher resolved — ${expected}.` });
-      setTimeout(onSolve, 700);
-    } else {
-      setSt({ ok: false, msg: "Not correct. Find all three violations, correct those legend entries, then read rooms 1–7 in sequence." });
-      wrong();
+    if (locked || isVerifying) return;
+    setIsVerifying(true);
+    try {
+      const res = await fetch("/api/questions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ caseId: "08", puzzleKey: "p7", answer: inp })
+      });
+      const data = await res.json();
+      if (data.success && data.correct) {
+        setSt({ ok: true, msg: `Blueprint cipher resolved.` });
+        setTimeout(onSolve, 700);
+      } else {
+        setSt({ ok: false, msg: "Not correct. Find all three violations, correct those legend entries, then read rooms 1–7 in sequence." });
+        wrong();
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsVerifying(false);
     }
   }
 
@@ -1287,16 +1379,30 @@ function P8({ wrong, locked, onSolve, dbAnswers = {} }: PuzzleProps & { dbAnswer
 
   function setA(i: number, v: string) { const a = [...ans]; a[i] = v.slice(0,2); setAns(a); }
 
-  function submit(e: React.FormEvent) {
+  const [isVerifying, setIsVerifying] = useState(false);
+
+  async function submit(e: React.FormEvent) {
     e.preventDefault();
-    if (locked) return;
-    const expected = (dbAnswers.p8 || "ZERO").toUpperCase();
-    if (inp.trim().toUpperCase() === expected) {
-      setSt({ ok: true, msg: `Sequence anomaly confirmed — ${expected}.` });
-      setTimeout(onSolve, 700);
-    } else {
-      setSt({ ok: false, msg: "Not correct. For each sequence: find the rule, determine the correct symbol at index 5, look it up in the table." });
-      wrong();
+    if (locked || isVerifying) return;
+    setIsVerifying(true);
+    try {
+      const res = await fetch("/api/questions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ caseId: "08", puzzleKey: "p8", answer: inp })
+      });
+      const data = await res.json();
+      if (data.success && data.correct) {
+        setSt({ ok: true, msg: `Sequence anomaly confirmed.` });
+        setTimeout(onSolve, 700);
+      } else {
+        setSt({ ok: false, msg: "Not correct. For each sequence: find the rule, determine the correct symbol at index 5, look it up in the table." });
+        wrong();
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsVerifying(false);
     }
   }
 
@@ -1369,30 +1475,39 @@ function P9({ wrong, locked, onSolve, dbAnswers = {} }: PuzzleProps & { dbAnswer
 
   function setV(i: number, v: string) { const a = [...vals]; a[i] = v; setVals(a); }
 
-  function submit(e: React.FormEvent) {
+  const [isVerifying, setIsVerifying] = useState(false);
+
+  async function submit(e: React.FormEvent) {
     e.preventDefault();
-    if (locked) return;
+    if (locked || isVerifying) return;
+    setIsVerifying(true);
 
-    const d1 = (dbAnswers.dossier_1 || "14 OCTOBER 1972").toUpperCase();
-    const d2 = (dbAnswers.dossier_2 || "EK4").toUpperCase();
-    const d3 = (dbAnswers.dossier_3 || "DELTA").toUpperCase();
-    const d4 = (dbAnswers.dossier_4 || "7294").toUpperCase();
-    const d5 = (dbAnswers.dossier_5 || "THE NULL ROOM").toUpperCase();
-    const d6 = (dbAnswers.dossier_6 || "NULL-GATE").toUpperCase();
-    const d7 = (dbAnswers.dossier_7 || "1967").toUpperCase();
-    const d8 = (dbAnswers.dossier_8 || "VOSS").toUpperCase();
+    try {
+      const results = await Promise.all(DOSSIER.map(async (b, i) => {
+        const res = await fetch("/api/questions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ caseId: "08", puzzleKey: `dossier_${i + 1}`, answer: vals[i] })
+        });
+        const data = await res.json();
+        return !!(data.success && data.correct);
+      }));
 
-    const expectedAnswers = [d1, d2, d3, d4, d5, d6, d7, d8];
+      const bad = DOSSIER
+        .map((b, i) => !results[i] ? b.id : null)
+        .filter((b): b is number => b !== null);
 
-    const bad = DOSSIER
-      .map((b, i) => vals[i].trim().toUpperCase().replace(/\s+/g, " ") !== expectedAnswers[i] ? b.id : null)
-      .filter((b): b is number => b !== null);
-    if (bad.length === 0) {
-      setSt({ ok: true, msg: "ALL FIELDS CONFIRMED. Final dossier unlocked." });
-      setTimeout(onSolve, 900);
-    } else {
-      setSt({ ok: false, msg: `Fields ${bad.join(", ")} incorrect. Two fields require details spoken aloud — not found in any file.` });
-      wrong();
+      if (bad.length === 0) {
+        setSt({ ok: true, msg: "ALL FIELDS CONFIRMED. Final dossier unlocked." });
+        setTimeout(onSolve, 900);
+      } else {
+        setSt({ ok: false, msg: `Fields ${bad.join(", ")} incorrect. Two fields require details spoken aloud — not found in any file.` });
+        wrong();
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsVerifying(false);
     }
   }
 
@@ -1549,7 +1664,6 @@ export default function App() {
   const [timerOn, setTimerOn] = useState(false);
   const [muted, setMuted] = useState(false);
   const [trans, setTrans] = useState(false);
-  const [dbAnswers, setDbAnswers] = useState<Record<string, string>>({});
   const ivRef = useRef<any>(null);
   const music = useMusicEngine();
 
@@ -1558,26 +1672,6 @@ export default function App() {
     else if (ivRef.current) clearInterval(ivRef.current);
     return () => { if (ivRef.current) clearInterval(ivRef.current); };
   }, [timerOn]);
-
-  // Load DB questions on mount
-  useEffect(() => {
-    async function loadQuestions() {
-      try {
-        const res = await fetch("/api/questions?caseId=08");
-        const data = await res.json();
-        if (data.success && data.questions) {
-          const answers: Record<string, string> = {};
-          data.questions.forEach((q: any) => {
-            answers[q.puzzleKey] = q.answer;
-          });
-          setDbAnswers(answers);
-        }
-      } catch (err) {
-        console.error("Failed to load Case 8 questions:", err);
-      }
-    }
-    loadQuestions();
-  }, []);
 
   // Load DB progress on mount
   useEffect(() => {
@@ -1663,7 +1757,7 @@ export default function App() {
               const meta = PUZZLE_META[step.idx];
               return (
                 <Shell key={step.idx} index={step.idx + 1} title={meta.title} prompt={meta.prompt} hints={meta.hints}>
-                  <Comp onSolve={goNext} dbAnswers={dbAnswers}/>
+                  <Comp onSolve={goNext} dbAnswers={{}}/>
                 </Shell>
               );
             })()}

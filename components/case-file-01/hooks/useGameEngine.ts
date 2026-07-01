@@ -188,13 +188,13 @@ export function useGameEngine() {
           setAnomalies(prev => {
             const updated = { ...prev };
             
-            qData.questions.forEach((q: { anomalyId: string; puzzleIndex: number; question: string; answer: string }) => {
+            qData.questions.forEach((q: { anomalyId: string; puzzleIndex: number; question: string; answer: string; puzzleKey: string }) => {
               if (updated[q.anomalyId] && updated[q.anomalyId].puzzles[q.puzzleIndex]) {
                 updated[q.anomalyId] = {
                   ...updated[q.anomalyId],
                   puzzles: updated[q.anomalyId].puzzles.map((p, idx) => {
                     if (idx === q.puzzleIndex) {
-                      return { ...p, question: q.question, answer: q.answer };
+                      return { ...p, question: q.question, puzzleKey: q.puzzleKey };
                     }
                     return p;
                   })

@@ -60,40 +60,48 @@ export default function FortuneTellerPuzzle({
     }
   };
 
-  const [correctWord, setCorrectWord] = useState("PARADOX");
+  const [isVerifying, setIsVerifying] = useState(false);
 
-  useEffect(() => {
-    async function load() {
-      try {
-        const res = await fetch("/api/questions?caseId=04");
-        const data = await res.json();
-        if (data.success && data.questions) {
-          const q = data.questions.find((x: any) => x.puzzleKey === "fortune_teller");
-          if (q) setCorrectWord(q.answer.toUpperCase());
-        }
-      } catch (e) {
-        console.error(e);
-      }
-    }
-    load();
-  }, []);
-
-  const verifyFinalWord = (e: React.FormEvent) => {
+  const verifyFinalWord = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (disabled) return;
-    if (answerInput.trim().toUpperCase() === correctWord) {
-      setStatusState("SUCCESS");
-      playSound("onFinalWordCorrect");
-      if (onSolved) {
-        onSolved();
+    if (disabled || isVerifying) return;
+    setIsVerifying(true);
+
+    try {
+      const res = await fetch("/api/questions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          caseId: "04",
+          puzzleKey: "fortune_teller",
+          answer: answerInput
+        })
+      });
+      const data = await res.json();
+      if (data.success && data.correct) {
+        setStatusState("SUCCESS");
+        playSound("onFinalWordCorrect");
+        if (onSolved) {
+          onSolved();
+        }
+      } else {
+        setStatusState("FAIL");
+        playSound("onFail");
+        if (onFailed) {
+          onFailed();
+        }
+        setTimeout(() => setStatusState("IDLE"), 3000);
       }
-    } else {
+    } catch (err) {
+      console.error(err);
       setStatusState("FAIL");
       playSound("onFail");
       if (onFailed) {
         onFailed();
       }
       setTimeout(() => setStatusState("IDLE"), 3000);
+    } finally {
+      setIsVerifying(false);
     }
   };
 

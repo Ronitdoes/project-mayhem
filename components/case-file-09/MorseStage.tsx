@@ -10,10 +10,9 @@ import { useMorsePuzzle } from "@/hooks/useMorsePuzzle";
 
 interface MorseStageProps {
   onSolve: () => void;
-  expectedAnswer?: string;
 }
 
-export default function MorseStage({ onSolve, expectedAnswer }: MorseStageProps) {
+export default function MorseStage({ onSolve }: MorseStageProps) {
   const {
     answer,
     setAnswer,
@@ -27,7 +26,7 @@ export default function MorseStage({ onSolve, expectedAnswer }: MorseStageProps)
     transmission,
     hints,
     title,
-  } = useMorsePuzzle(expectedAnswer);
+  } = useMorsePuzzle();
 
   useEffect(() => {
     if (isSolved) {

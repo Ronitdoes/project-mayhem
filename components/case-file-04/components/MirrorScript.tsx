@@ -12,40 +12,46 @@ export default function MirrorScriptPuzzle({
   const [submitted, setSubmitted] = useState(false);
   const [isCorrect, setIsCorrect] = useState(false);
 
-  const [correctAnswer, setCorrectAnswer] = useState("carnival 17");
+  const [isVerifying, setIsVerifying] = useState(false);
 
-  React.useEffect(() => {
-    async function load() {
-      try {
-        const res = await fetch("/api/questions?caseId=04");
-        const data = await res.json();
-        if (data.success && data.questions) {
-          const q = data.questions.find((x: any) => x.puzzleKey === "mirror_script");
-          if (q) setCorrectAnswer(q.answer.toLowerCase());
-        }
-      } catch (e) {
-        console.error(e);
-      }
-    }
-    load();
-  }, []);
-
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (disabled) return;
+    if (disabled || isVerifying) return;
+    setIsVerifying(true);
 
-    if (answer.toLowerCase().trim() === correctAnswer) {
-      setIsCorrect(true);
-      setSubmitted(true);
-      if (onSolved) {
-        onSolved();
+    try {
+      const res = await fetch("/api/questions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          caseId: "04",
+          puzzleKey: "mirror_script",
+          answer: answer
+        })
+      });
+      const data = await res.json();
+      if (data.success && data.correct) {
+        setIsCorrect(true);
+        setSubmitted(true);
+        if (onSolved) {
+          onSolved();
+        }
+      } else {
+        setIsCorrect(false);
+        setSubmitted(true);
+        if (onFailed) {
+          onFailed();
+        }
       }
-    } else {
+    } catch (err) {
+      console.error(err);
       setIsCorrect(false);
       setSubmitted(true);
       if (onFailed) {
         onFailed();
       }
+    } finally {
+      setIsVerifying(false);
     }
   };
 

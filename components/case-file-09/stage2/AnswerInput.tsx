@@ -2,17 +2,17 @@ import React, { useState } from "react";
 import { Terminal, Key, CornerDownLeft, AlertCircle } from "lucide-react";
 
 interface AnswerInputProps {
-  expectedAnswer: string;
   onSubmit: (answer: string) => void;
-  isLoading?: boolean;
 }
 
-export function AnswerInput({ expectedAnswer, onSubmit, isLoading = false }: AnswerInputProps) {
+export function AnswerInput({ onSubmit }: AnswerInputProps) {
   const [value, setValue] = useState("");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isLoading) return;
     setErrorMsg(null);
 
     const trimmed = value.trim();
@@ -21,14 +21,28 @@ export function AnswerInput({ expectedAnswer, onSubmit, isLoading = false }: Ans
       return;
     }
 
-    // Normalization check
-    const normalizedInput = trimmed.replace(/\s+/g, "").toUpperCase();
-    const normalizedExpected = expectedAnswer.replace(/\s+/g, "").toUpperCase();
-
-    if (normalizedInput === normalizedExpected) {
-      onSubmit(trimmed);
-    } else {
-      setErrorMsg("INVALID KEYWORD: ACCESS DENIED");
+    setIsLoading(true);
+    try {
+      const res = await fetch("/api/questions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          caseId: "09",
+          puzzleKey: "stage2",
+          answer: trimmed
+        })
+      });
+      const data = await res.json();
+      if (data.success && data.correct) {
+        onSubmit(trimmed);
+      } else {
+        setErrorMsg("INVALID KEYWORD: ACCESS DENIED");
+      }
+    } catch (err) {
+      console.error(err);
+      setErrorMsg("CONNECTION ERROR. PLEASE RETRY.");
+    } finally {
+      setIsLoading(false);
     }
   };
 
