@@ -1,0 +1,96 @@
+import fs from 'fs'
+import path from 'path'
+
+interface SendEmailParams {
+  to: string
+  subject: string
+  html: string
+  text: string
+}
+
+function parseEmailFrom(emailFrom: string): { name?: string; email: string } {
+  const match = emailFrom.match(/^(.*?)\s*<(.*?)>$/)
+  if (match) {
+    return {
+      name: match[1].trim() || undefined,
+      email: match[2].trim(),
+    }
+  }
+  return {
+    email: emailFrom.trim(),
+  }
+}
+
+export async function sendClassifiedEmail({
+  to,
+  subject,
+  html,
+  text,
+}: SendEmailParams): Promise<{ success: boolean; id?: string; error?: string; method: 'brevo' | 'local_log' }> {
+  const from = process.env.EMAIL_FROM || 'PROJECT NULL <onboarding@brevo.com>'
+  const apiKey = process.env.BREVO_API_KEY
+
+  // If Brevo API key is configured, use it
+  if (apiKey) {
+    try {
+      const parsedSender = parseEmailFrom(from)
+      const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+        method: 'POST',
+        headers: {
+          'accept': 'application/json',
+          'api-key': apiKey,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({
+          sender: parsedSender,
+          to: [{ email: to }],
+          subject,
+          htmlContent: html,
+          textContent: text,
+        }),
+      })
+
+      if (!response.ok) {
+        const errorText = await response.text()
+        console.error('Brevo delivery failed:', errorText)
+        return { success: false, error: errorText, method: 'brevo' }
+      }
+
+      const responseData = await response.json().catch(() => ({}))
+      return { success: true, id: responseData.messageId, method: 'brevo' }
+    } catch (err: any) {
+      console.error('Exception during Brevo transmission:', err)
+      return { success: false, error: err.message || String(err), method: 'brevo' }
+    }
+  }
+
+  // Fallback: Local log writing for offline / demo mode
+  try {
+    const logDir = path.join(process.cwd(), 'artifacts')
+    if (!fs.existsSync(logDir)) {
+      fs.mkdirSync(logDir, { recursive: true })
+    }
+    const logFilePath = path.join(logDir, 'sent_emails.log')
+    const logEntry = `
+========================================
+TIMESTAMP: ${new Date().toISOString()}
+TO: ${to}
+FROM: ${from}
+SUBJECT: ${subject}
+----------------------------------------
+[HTML CONTENT]:
+${html}
+
+[TEXT CONTENT]:
+${text}
+========================================
+\n`
+    fs.appendFileSync(logFilePath, logEntry, 'utf-8')
+    console.log('\n[LOCAL EMAIL SIMULATOR] Email logged to artifacts/sent_emails.log:\n', logEntry)
+    
+    return { success: true, id: 'simulated-brevo-id-' + Math.random().toString(36).substr(2, 9), method: 'local_log' }
+  } catch (err: any) {
+    console.error('Failed to log email to local artifacts:', err)
+    return { success: false, error: err.message || String(err), method: 'local_log' }
+  }
+}
