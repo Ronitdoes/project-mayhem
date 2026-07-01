@@ -12,6 +12,7 @@ export interface Puzzle {
   question?: string;
   answer?: string;
   sequenceLength?: number;
+  targetWeight?: number;
 }
 
 export interface Anomaly {
@@ -70,7 +71,7 @@ const LEVELS: Level[] = [
         puzzles: [
           { type: "lights_out", pattern: [1, 4, 7] },
           { type: "lights_out", pattern: [1, 4, 7] },
-          { type: "question", question: "", answer: "" }
+          { type: "weight_balance", targetWeight: 14 }
         ],
         solved: false
       },
@@ -78,7 +79,7 @@ const LEVELS: Level[] = [
         id: "a2",
         puzzles: [
           { type: "lights_out", pattern: [1, 4, 7] },
-          { type: "question", question: "", answer: "" },
+          { type: "weight_balance", targetWeight: 6 },
           { type: "lights_out", pattern: [1, 4, 7] }
         ],
         solved: false
@@ -86,8 +87,8 @@ const LEVELS: Level[] = [
       "25,24": {
         id: "a3",
         puzzles: [
-          { type: "question", question: "", answer: "" },
-          { type: "question", question: "", answer: "" },
+          { type: "weight_balance", targetWeight: 9 },
+          { type: "weight_balance", targetWeight: 11 },
           { type: "sequence", sequenceLength: 3 }
         ],
         solved: false
@@ -96,7 +97,7 @@ const LEVELS: Level[] = [
         id: "a4",
         puzzles: [
           { type: "lights_out", pattern: [1, 4, 7] },
-          { type: "question", question: "", answer: "" },
+          { type: "weight_balance", targetWeight: 15 },
           { type: "sequence", sequenceLength: 3 }
         ],
         solved: false
@@ -104,18 +105,18 @@ const LEVELS: Level[] = [
       "17,21": {
         id: "a5",
         puzzles: [
-          { type: "question", question: "", answer: "" },
-          { type: "question", question: "", answer: "" },
-          { type: "question", question: "", answer: "" }
+          { type: "weight_balance", targetWeight: 4 },
+          { type: "weight_balance", targetWeight: 13 },
+          { type: "weight_balance", targetWeight: 18 }
         ],
         solved: false
       },
       "17,1": {
         id: "a6",
         puzzles: [
-          { type: "question", question: "", answer: "" },
+          { type: "weight_balance", targetWeight: 8 },
           { type: "sequence", sequenceLength: 3 },
-          { type: "question", question: "", answer: "" }
+          { type: "weight_balance", targetWeight: 19 }
         ],
         solved: false
       },
@@ -124,7 +125,7 @@ const LEVELS: Level[] = [
         puzzles: [
           { type: "lights_out", pattern: [1, 4, 7] },
           { type: "sequence", sequenceLength: 3 },
-          { type: "question", question: "", answer: "" }
+          { type: "weight_balance", targetWeight: 16 }
         ],
         solved: false
       },
@@ -171,82 +172,6 @@ export function useGameEngine() {
 
   const [showStory, setShowStory] = useState<boolean>(false);
   const [gameWon, setGameWon] = useState<boolean>(false);
-
-  useEffect(() => {
-    async function loadQuestionsAndProgress() {
-      try {
-        const qRes = await fetch("/api/questions?caseId=01");
-        const qData = await qRes.json();
-        
-        const pRes = await fetch("/api/progress?caseId=01");
-        const pData = await pRes.json();
-        const solvedAnomalies = pData.success && Array.isArray(pData.progress?.solvedAnomalies) 
-          ? pData.progress.solvedAnomalies 
-          : [];
-
-        if (qData.success && qData.questions) {
-          setAnomalies(prev => {
-            const updated = { ...prev };
-            
-            qData.questions.forEach((q: { anomalyId: string; puzzleIndex: number; question: string; answer: string }) => {
-              if (updated[q.anomalyId] && updated[q.anomalyId].puzzles[q.puzzleIndex]) {
-                updated[q.anomalyId] = {
-                  ...updated[q.anomalyId],
-                  puzzles: updated[q.anomalyId].puzzles.map((p, idx) => {
-                    if (idx === q.puzzleIndex) {
-                      return { ...p, question: q.question, answer: q.answer };
-                    }
-                    return p;
-                  })
-                };
-              }
-            });
-
-            solvedAnomalies.forEach((anomalyKey: string) => {
-              if (updated[anomalyKey]) {
-                updated[anomalyKey].solved = true;
-              }
-            });
-
-            return updated;
-          });
-        }
-
-        if (pData.success) {
-          if (pData.progress?.player) {
-            setPlayer(pData.progress.player);
-          }
-          if (pData.progress?.levelIndex !== undefined) {
-            setLevelIndex(pData.progress.levelIndex);
-          }
-        }
-      } catch (err) {
-        console.error("Failed to load DB questions or progress for Case 1:", err);
-      }
-    }
-    loadQuestionsAndProgress();
-  }, []);
-
-  // Save player position and level index with a 1-second debounce
-  useEffect(() => {
-    if (player.x === LEVELS[0].start.x && player.y === LEVELS[0].start.y && levelIndex === 0) return;
-
-    const handler = setTimeout(() => {
-      fetch("/api/progress", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ caseId: "01", key: "player", value: player }),
-      }).catch((err) => console.error("Failed to save player position:", err));
-
-      fetch("/api/progress", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ caseId: "01", key: "levelIndex", value: levelIndex }),
-      }).catch((err) => console.error("Failed to save level index:", err));
-    }, 1000);
-
-    return () => clearTimeout(handler);
-  }, [player, levelIndex]);
 
   const currentLevel = LEVELS[levelIndex];
   const allSolved = Object.values(anomalies).every(a => a.solved);
@@ -323,22 +248,10 @@ export function useGameEngine() {
   }, [movePlayer, turnPlayer, activeAnomaly, showStory, gameWon]);
 
   const solveAnomaly = (key: string) => {
-    setAnomalies(prev => {
-      const updated = {
-        ...prev,
-        [key]: { ...prev[key], solved: true }
-      };
-
-      const solvedIds = Object.keys(updated).filter(k => updated[k].solved);
-      
-      fetch('/api/progress', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ caseId: '01', key: 'solvedAnomalies', value: solvedIds })
-      }).catch(err => console.error('Failed to save Case 1 progress:', err));
-
-      return updated;
-    });
+    setAnomalies(prev => ({
+      ...prev,
+      [key]: { ...prev[key], solved: true }
+    }));
     setActiveAnomaly(null);
   };
 
