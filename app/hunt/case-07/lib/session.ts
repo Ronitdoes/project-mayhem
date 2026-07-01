@@ -177,7 +177,6 @@ export async function setSession(name: string, email: string, teamName?: string,
   const newUserId = crypto.randomUUID()
   const isProd = process.env.NODE_ENV === 'production'
   const cookieOptions = { 
-    maxAge: 60 * 60 * 24 * 7, 
     path: '/', 
     httpOnly: true, 
     secure: isProd, 
@@ -271,7 +270,6 @@ export async function saveDemoState(state: SessionData) {
   const cookieStore = await cookies()
   const isProd = process.env.NODE_ENV === 'production'
   const cookieOptions = { 
-    maxAge: 60 * 60 * 24 * 7, 
     path: '/', 
     httpOnly: true, 
     secure: isProd, 

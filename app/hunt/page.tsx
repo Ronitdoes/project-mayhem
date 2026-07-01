@@ -115,6 +115,12 @@ export default function HuntPage() {
   const flyerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    // Check if session is active in this tab session
+    if (!sessionStorage.getItem("isLoggedIn")) {
+      window.location.href = '/';
+      return;
+    }
+
     // Migration: If they completed Quiz 1 but not Quiz 2
     if (
       localStorage.getItem("case-09-completed") === "true" &&

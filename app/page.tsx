@@ -10,6 +10,18 @@ export default function Home() {
 
   useEffect(() => {
     async function checkAuth() {
+      const isSessionActive = sessionStorage.getItem("isLoggedIn");
+      
+      if (!isSessionActive) {
+        try {
+          await fetch("/hunt/case-07/api/auth/session", { method: "DELETE" });
+        } catch (e) {
+          console.error("Failed to clear session:", e);
+        }
+        setAuthenticated(false);
+        return;
+      }
+
       try {
         const res = await fetch("/api/cases/progress");
         const data = await res.json();
@@ -17,10 +29,12 @@ export default function Home() {
           setAuthenticated(true);
         } else {
           setAuthenticated(false);
+          sessionStorage.removeItem("isLoggedIn");
         }
       } catch (err) {
         console.error("Auth check failed:", err);
         setAuthenticated(false);
+        sessionStorage.removeItem("isLoggedIn");
       }
     }
     checkAuth();
@@ -35,6 +49,7 @@ export default function Home() {
       });
       const result = await res.json();
       if (result.success) {
+        sessionStorage.setItem("isLoggedIn", "true");
         setAuthenticated(true);
       } else {
         setError(result.message || "Authentication failed.");
