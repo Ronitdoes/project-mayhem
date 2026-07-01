@@ -41,6 +41,63 @@ const SYMBOL_DETAILS: Record<string, { title: string; desc: string }> = {
   },
 };
 
+const CASE_COLORS = [
+  {
+    hoverBorder: "hover:border-cyan-500/40",
+    hoverShadow: "hover:shadow-[0_0_30px_rgba(6,182,212,0.12)]",
+    bgGradient: "to-cyan-500/[0.02]",
+    textColor: "group-hover:text-cyan-400",
+  },
+  {
+    hoverBorder: "hover:border-red-500/40",
+    hoverShadow: "hover:shadow-[0_0_30px_rgba(239,68,68,0.12)]",
+    bgGradient: "to-red-500/[0.02]",
+    textColor: "group-hover:text-red-400",
+  },
+  {
+    hoverBorder: "hover:border-amber-500/40",
+    hoverShadow: "hover:shadow-[0_0_30px_rgba(245,158,11,0.12)]",
+    bgGradient: "to-amber-500/[0.02]",
+    textColor: "group-hover:text-amber-400",
+  },
+  {
+    hoverBorder: "hover:border-violet-500/40",
+    hoverShadow: "hover:shadow-[0_0_30px_rgba(139,92,246,0.12)]",
+    bgGradient: "to-violet-500/[0.02]",
+    textColor: "group-hover:text-violet-400",
+  },
+  {
+    hoverBorder: "hover:border-emerald-500/40",
+    hoverShadow: "hover:shadow-[0_0_30px_rgba(16,185,129,0.12)]",
+    bgGradient: "to-emerald-500/[0.02]",
+    textColor: "group-hover:text-emerald-400",
+  },
+  {
+    hoverBorder: "hover:border-pink-500/40",
+    hoverShadow: "hover:shadow-[0_0_30px_rgba(236,72,153,0.12)]",
+    bgGradient: "to-pink-500/[0.02]",
+    textColor: "group-hover:text-pink-400",
+  },
+  {
+    hoverBorder: "hover:border-orange-500/40",
+    hoverShadow: "hover:shadow-[0_0_30px_rgba(249,115,22,0.12)]",
+    bgGradient: "to-orange-500/[0.02]",
+    textColor: "group-hover:text-orange-400",
+  },
+  {
+    hoverBorder: "hover:border-fuchsia-500/40",
+    hoverShadow: "hover:shadow-[0_0_30px_rgba(217,70,239,0.12)]",
+    bgGradient: "to-fuchsia-500/[0.02]",
+    textColor: "group-hover:text-fuchsia-400",
+  },
+  {
+    hoverBorder: "hover:border-indigo-500/40",
+    hoverShadow: "hover:shadow-[0_0_30px_rgba(99,102,241,0.12)]",
+    bgGradient: "to-indigo-500/[0.02]",
+    textColor: "group-hover:text-indigo-400",
+  },
+];
+
 export default function HuntPage() {
   const [completedList, setCompletedList] = useState<Record<string, boolean>>({});
   
@@ -283,11 +340,26 @@ export default function HuntPage() {
       {/* Floating HUD Inventory Hamburger Trigger */}
       <button 
         onClick={() => setIsInventoryOpen(!isInventoryOpen)}
-        className="fixed top-4 left-4 sm:top-6 sm:left-6 z-35 flex items-center gap-2.5 px-4 py-2.5 bg-zinc-950/85 border border-zinc-800/80 hover:border-cyan-500/50 text-zinc-300 hover:text-cyan-400 rounded-xl cursor-pointer transition-all duration-300 shadow-md backdrop-blur-md font-mono text-[9px] sm:text-[10px] tracking-widest font-bold select-none group"
+        className="fixed top-4 left-4 sm:top-6 sm:left-6 z-35 flex items-center gap-3 px-4.5 py-2 bg-gradient-to-r from-zinc-950/90 via-zinc-900/90 to-zinc-950/90 border border-zinc-800/60 hover:border-cyan-400/80 text-zinc-300 hover:text-cyan-300 rounded-xl cursor-pointer transition-all duration-300 shadow-[0_4px_24px_rgba(0,0,0,0.5),_inset_0_1px_1px_rgba(255,255,255,0.05)] hover:shadow-[0_0_20px_rgba(6,182,212,0.3)] hover:-translate-y-0.5 backdrop-blur-md font-mono text-[10px] sm:text-[11px] tracking-[0.2em] font-extrabold select-none group active:scale-95"
       >
-        {isInventoryOpen ? <X size={15} /> : <Menu size={15} />}
-        <span>INVENTORY</span>
-        <span className="text-cyan-500 font-bold bg-cyan-950/30 px-1.5 py-0.5 border border-cyan-500/20 rounded-md">
+        <span className="relative flex items-center justify-center w-4 h-4">
+          {/* Pulsing indicator when there are solved items */}
+          {Object.keys(completedList).filter(k => parseInt(k, 10) <= 8 && completedList[k]).length > 0 && (
+            <span className="absolute -top-0.5 -right-0.5 flex h-1.5 w-1.5">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-cyan-500"></span>
+            </span>
+          )}
+          <span className="transition-transform duration-300 group-hover:rotate-180">
+            {isInventoryOpen ? <X size={15} className="text-cyan-400" /> : <Menu size={15} className="text-zinc-400 group-hover:text-cyan-400" />}
+          </span>
+        </span>
+        
+        <span className="bg-gradient-to-r from-zinc-100 to-zinc-300 bg-clip-text text-transparent group-hover:from-cyan-300 group-hover:to-teal-300 transition-all duration-300">
+          INVENTORY
+        </span>
+        
+        <span className="font-mono text-[10px] sm:text-[11px] font-black text-cyan-400 bg-cyan-950/40 px-2 py-0.5 border border-cyan-500/30 rounded-lg shadow-[inset_0_0_8px_rgba(6,182,212,0.25)] group-hover:border-cyan-400/60 transition-all duration-300">
           {Object.keys(completedList).filter(k => parseInt(k, 10) <= 8 && completedList[k]).length}/8
         </span>
       </button>
@@ -381,6 +453,8 @@ export default function HuntPage() {
             );
           }
 
+          const colors = CASE_COLORS[index] || CASE_COLORS[0];
+
           return (
             <Link
               key={index}
@@ -405,12 +479,12 @@ export default function HuntPage() {
                   ? "/hunt/case-09"
                   : "#"
               }
-              className="flex items-center justify-center h-36 md:h-44 bg-zinc-950/60 border border-zinc-800/80 rounded-xl p-6 cursor-pointer transition-all duration-300 hover:border-cyan-500/40 hover:shadow-[0_0_30px_rgba(6,182,212,0.12)] hover:-translate-y-1 group relative overflow-hidden"
+              className={`flex items-center justify-center h-36 md:h-44 bg-zinc-950/60 border border-zinc-800/80 rounded-xl p-6 cursor-pointer transition-all duration-300 ${colors.hoverBorder} ${colors.hoverShadow} hover:-translate-y-1 group relative overflow-hidden`}
             >
               {/* Subtle glow border effect on hover */}
-              <div className="absolute inset-0 bg-gradient-to-b from-transparent to-cyan-500/[0.02] opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+              <div className={`absolute inset-0 bg-gradient-to-b from-transparent ${colors.bgGradient} opacity-0 group-hover:opacity-100 transition-opacity duration-500`} />
               
-              <span className="font-mono text-xs md:text-sm tracking-[0.25em] text-zinc-400 group-hover:text-cyan-400 transition-colors uppercase duration-300">
+              <span className={`font-mono text-xs md:text-sm tracking-[0.25em] text-zinc-400 ${colors.textColor} transition-colors uppercase duration-300`}>
                 {fileName}
               </span>
             </Link>

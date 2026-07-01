@@ -11,6 +11,8 @@ export interface SessionData {
   userId: string
   name: string
   email: string
+  teamName?: string
+  password?: string
   integrity: number
   recovered: string[] // List of timeline IDs that have recovered their fragment
   hints: number
@@ -21,6 +23,8 @@ const DEFAULT_DEMO_STATE: SessionData = {
   userId: 'demo-agent-uuid',
   name: 'Demo Agent',
   email: 'agent@aetherion.org',
+  teamName: 'Demo Team',
+  password: 'password',
   integrity: 100,
   recovered: [],
   hints: 0,
@@ -155,6 +159,8 @@ export async function getSession(): Promise<SessionData | null> {
       userId: user.id,
       name: user.name,
       email: user.email,
+      teamName: user.teamName ?? undefined,
+      password: user.password ?? undefined,
       integrity,
       recovered,
       hints,
@@ -166,7 +172,7 @@ export async function getSession(): Promise<SessionData | null> {
   }
 }
 
-export async function setSession(name: string, email: string): Promise<string> {
+export async function setSession(name: string, email: string, teamName?: string, password?: string): Promise<string> {
   const cookieStore = await cookies()
   const newUserId = crypto.randomUUID()
   const isProd = process.env.NODE_ENV === 'production'
@@ -185,6 +191,8 @@ export async function setSession(name: string, email: string): Promise<string> {
       userId: newUserId,
       name,
       email,
+      teamName,
+      password,
     }
     cookieStore.set('auth_session', signCookie(newUserId), cookieOptions)
     cookieStore.set('aetherion_demo_state', signCookie(JSON.stringify(newSessionState)), cookieOptions)
@@ -203,8 +211,17 @@ export async function setSession(name: string, email: string): Promise<string> {
         id: newUserId,
         name,
         email,
+        teamName: teamName || null,
+        password: password || null,
       })
-      user = { id: newUserId, name, email, createdAt: new Date() }
+      user = { id: newUserId, name, email, teamName: teamName || null, password: password || null, createdAt: new Date() }
+    } else {
+      // Update user info if they log in again with new info
+      const updates: Record<string, any> = { name }
+      if (teamName) updates.teamName = teamName
+      if (password) updates.password = password
+      await db.update(users).set(updates).where(eq(users.id, user.id))
+      user = { ...user, ...updates }
     }
 
     // Initialize leaderboard entry if missing

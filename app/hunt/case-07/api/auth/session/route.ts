@@ -8,12 +8,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, message: 'Invalid payload.' }, { status: 400 })
     }
 
-    const { name, email } = body as Record<string, unknown>
-    if (typeof name !== 'string' || !name.trim() || typeof email !== 'string' || !email.trim()) {
-      return NextResponse.json({ success: false, message: 'Name and Email are required.' }, { status: 400 })
+    const { name, email, teamName, password } = body as Record<string, unknown>
+    if (
+      typeof name !== 'string' || !name.trim() ||
+      typeof email !== 'string' || !email.trim() ||
+      typeof teamName !== 'string' || !teamName.trim() ||
+      typeof password !== 'string' || !password.trim()
+    ) {
+      return NextResponse.json({ success: false, message: 'Name, Email, Team Name, and Password are required.' }, { status: 400 })
     }
 
-    const userId = await setSession(name.trim(), email.trim().toLowerCase())
+    const userId = await setSession(name.trim(), email.trim().toLowerCase(), teamName.trim(), password.trim())
     return NextResponse.json({ success: true, userId })
   } catch (error) {
     console.error('Session API error:', error)

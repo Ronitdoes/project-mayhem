@@ -8,6 +8,8 @@ import { motion } from 'framer-motion';
 const schema = z.object({
   name: z.string().min(1, 'Agent designation required'),
   email: z.string().email('Valid comm-link required'),
+  teamName: z.string().min(1, 'Team designation required'),
+  password: z.string().min(1, 'Password required'),
 });
 
 export type AuthFormValues = z.infer<typeof schema>;
@@ -71,7 +73,7 @@ export default function LandingAuth({ onSubmit }: LandingAuthProps) {
 
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 relative z-30">
             <div>
-              <label className="block font-special-elite text-sm mb-1 font-bold">NAME / ALIAS</label>
+              <label className="block font-special-elite text-sm mb-1 font-bold">NAME</label>
               <input
                 {...register("name")}
                 className="w-full bg-transparent border-b-2 border-[#2c1a1a]/40 focus:border-[#8B1A1A] outline-none py-2 font-space-mono text-lg transition-colors"
@@ -82,7 +84,7 @@ export default function LandingAuth({ onSubmit }: LandingAuthProps) {
             </div>
 
             <div>
-              <label className="block font-special-elite text-sm mb-1 font-bold">CONTACT / COMM-LINK</label>
+              <label className="block font-special-elite text-sm mb-1 font-bold">EMAIL</label>
               <input
                 {...register("email")}
                 className="w-full bg-transparent border-b-2 border-[#2c1a1a]/40 focus:border-[#8B1A1A] outline-none py-2 font-space-mono text-lg transition-colors"
@@ -90,6 +92,29 @@ export default function LandingAuth({ onSubmit }: LandingAuthProps) {
                 data-testid="input-email"
               />
               {errors.email && <p className="text-[#CC0000] text-xs mt-1 font-space-mono font-bold">{errors.email.message}</p>}
+            </div>
+
+            <div>
+              <label className="block font-special-elite text-sm mb-1 font-bold">TEAM NAME</label>
+              <input
+                {...register("teamName")}
+                className="w-full bg-transparent border-b-2 border-[#2c1a1a]/40 focus:border-[#8B1A1A] outline-none py-2 font-space-mono text-lg transition-colors"
+                placeholder="Team designation..."
+                data-testid="input-team-name"
+              />
+              {errors.teamName && <p className="text-[#CC0000] text-xs mt-1 font-space-mono font-bold">{errors.teamName.message}</p>}
+            </div>
+
+            <div>
+              <label className="block font-special-elite text-sm mb-1 font-bold">PASSWORD</label>
+              <input
+                type="password"
+                {...register("password")}
+                className="w-full bg-transparent border-b-2 border-[#2c1a1a]/40 focus:border-[#8B1A1A] outline-none py-2 font-space-mono text-lg transition-colors"
+                placeholder="Secure password..."
+                data-testid="input-password"
+              />
+              {errors.password && <p className="text-[#CC0000] text-xs mt-1 font-space-mono font-bold">{errors.password.message}</p>}
             </div>
 
             <div className="pt-6">
