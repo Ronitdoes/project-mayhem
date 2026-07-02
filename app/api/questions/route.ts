@@ -118,6 +118,8 @@ export async function POST(request: NextRequest) {
       fuzzyThreshold = 0.8
     } else if (normalizedKey === 'kryptos_cipher') {
       fuzzyThreshold = 0.9
+    } else if (normalizedKey === 'mirror_script') {
+      aliases.push('carnival 17', 'carnival17', 'reveal')
     } else if (normalizedKey === 'golden_record') {
       fuzzyThreshold = 0.8
     }

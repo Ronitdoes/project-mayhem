@@ -13,12 +13,6 @@ export default function Home() {
       const isSessionActive = sessionStorage.getItem("isLoggedIn");
       
       if (!isSessionActive) {
-        try {
-          await fetch("/hunt/case-07/api/auth/session", { method: "DELETE" });
-        } catch (e) {
-          console.error("Failed to clear session:", e);
-        }
-        localStorage.clear();
         setAuthenticated(false);
         return;
       }
@@ -31,13 +25,11 @@ export default function Home() {
         } else {
           setAuthenticated(false);
           sessionStorage.removeItem("isLoggedIn");
-          localStorage.clear();
         }
       } catch (err) {
         console.error("Auth check failed:", err);
         setAuthenticated(false);
         sessionStorage.removeItem("isLoggedIn");
-        localStorage.clear();
       }
     }
     checkAuth();
