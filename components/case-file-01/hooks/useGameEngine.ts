@@ -66,74 +66,42 @@ const LEVELS: Level[] = [
     anomalies: {
       "27,13": {
         id: "a1",
-        puzzles: [
-          { type: "lights_out", pattern: [1, 4, 7] },
-          { type: "lights_out", pattern: [1, 4, 7] },
-          { type: "weight_balance", targetWeight: 14 }
-        ],
+        puzzles: [],
         solved: false
       },
       "15,17": {
         id: "a2",
-        puzzles: [
-          { type: "lights_out", pattern: [1, 4, 7] },
-          { type: "weight_balance", targetWeight: 6 },
-          { type: "lights_out", pattern: [1, 4, 7] }
-        ],
+        puzzles: [],
         solved: false
       },
       "25,24": {
         id: "a3",
-        puzzles: [
-          { type: "weight_balance", targetWeight: 9 },
-          { type: "weight_balance", targetWeight: 11 },
-          { type: "sequence", sequenceLength: 3 }
-        ],
+        puzzles: [],
         solved: false
       },
       "25,16": {
         id: "a4",
-        puzzles: [
-          { type: "lights_out", pattern: [1, 4, 7] },
-          { type: "weight_balance", targetWeight: 15 },
-          { type: "sequence", sequenceLength: 3 }
-        ],
+        puzzles: [],
         solved: false
       },
       "17,21": {
         id: "a5",
-        puzzles: [
-          { type: "weight_balance", targetWeight: 4 },
-          { type: "weight_balance", targetWeight: 13 },
-          { type: "weight_balance", targetWeight: 18 }
-        ],
+        puzzles: [],
         solved: false
       },
       "17,1": {
         id: "a6",
-        puzzles: [
-          { type: "weight_balance", targetWeight: 8 },
-          { type: "sequence", sequenceLength: 3 },
-          { type: "weight_balance", targetWeight: 19 }
-        ],
+        puzzles: [],
         solved: false
       },
       "9,5": {
         id: "a7",
-        puzzles: [
-          { type: "lights_out", pattern: [1, 4, 7] },
-          { type: "sequence", sequenceLength: 3 },
-          { type: "weight_balance", targetWeight: 16 }
-        ],
+        puzzles: [],
         solved: false
       },
       "11,21": {
         id: "a8",
-        puzzles: [
-          { type: "lights_out", pattern: [1, 4, 7] },
-          { type: "lights_out", pattern: [1, 4, 7] },
-          { type: "lights_out", pattern: [1, 4, 7] }
-        ],
+        puzzles: [],
         solved: false
       }
     },
