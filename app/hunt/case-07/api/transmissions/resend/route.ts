@@ -2,14 +2,56 @@ import { NextRequest, NextResponse } from 'next/server'
 import { isDbAvailable, db } from '@/db'
 import { emailTransmissions } from '@/db/schema'
 import { mockTransmissions } from '@/app/hunt/case-07/lib/mockDb'
-import { queueMailDeliveryJob } from '@/app/hunt/case-07/lib/brevo'
-import { DeadlightTransmissionEmail } from '@/app/hunt/case-07/emails/case-07'
-import { render } from '@react-email/components'
-import React from 'react'
 import { eq, desc } from 'drizzle-orm'
 import { getSession, saveDemoState } from '@/app/hunt/case-07/lib/session'
 import { getClientIp, isRateLimited, verifyCsrf } from '@/app/hunt/case-07/lib/rateLimit'
 
+// Same puzzle packets as in the send route
+const PUZZLE_PACKETS = [
+  {
+    id: 1,
+    title: 'BINARY (Base-2)',
+    data: '00010000',
+    method: "Standard 8-bit binary. Bit positions: (128, 64, 32, 16, 8, 4, 2, 1). Sum the positions where '1' appears.",
+    color: 'green',
+  },
+  {
+    id: 2,
+    title: 'HEXADECIMAL (Base-16)',
+    data: '0x0C',
+    method: 'Base-16 digits: 0-9, then A=10, B=11, C=12, D=13, E=14, F=15. Convert to decimal.',
+    color: 'blue',
+  },
+  {
+    id: 3,
+    title: 'OCTAL (Base-8)',
+    data: '01',
+    method: 'Base-8 number system. Each digit represents powers of 8. Convert to decimal.',
+    color: 'purple',
+  },
+  {
+    id: 4,
+    title: 'BASE64',
+    data: 'Bw==',
+    method: 'Base64 decodes to raw bytes. Decode "Bw==" to get a single byte, then read its decimal value.',
+    hint: "Technical hint: 'B' = index 1, 'w' = index 48. Combined: (1 << 2) | (48 >> 4) = 7.",
+    color: 'gold',
+  },
+  {
+    id: 5,
+    title: 'ASCII ARITHMETIC',
+    data: 'chr(66) - chr(65)',
+    method: "ASCII character code subtraction. Look up the decimal values: 'A'=65, 'B'=66, 'C'=67, etc. Subtract.",
+    color: 'green',
+  },
+  {
+    id: 6,
+    title: 'BINARY XOR',
+    data: '11001 XOR 01010',
+    method: 'Bitwise XOR on two 5-bit numbers, then convert result to decimal. XOR rule: same bits → 0, different bits → 1.',
+    color: 'red',
+  },
+]
 
 export async function POST(request: NextRequest) {
   try {
@@ -113,85 +155,7 @@ export async function POST(request: NextRequest) {
     const nextResendCount = record.resendCount + 1
     const lastResentAt = new Date()
 
-    // Render email template
-    let emailHtml = ''
-    try {
-      const emailElement = React.createElement(DeadlightTransmissionEmail, {
-        name: record.name,
-        sector: record.sector,
-        recoveryKey: record.recoveryKey,
-      })
-      emailHtml = await render(emailElement)
-    } catch (renderErr) {
-      console.error('Failed to render React Email template in resend route:', renderErr)
-    }
-
-    const emailText = `
-PROJECT NULL // INTERCEPTED DATA PACKETS // SITE KENNEDY (RESEND)
-----------------------------------------------------------------------
-RECOVERY AGENT: ${record.name.toUpperCase()} — SECTOR: ${record.sector.toUpperCase()}
-
-6 encoded data packets were intercepted from the organism's neural 
-network. Each packet uses a different encoding method and contains a 
-single number.
-
-STEP 1: Decode each packet to its decimal value.
-STEP 2: Map each decimal to its position in the alphabet (1=A, 2=B, ... 26=Z).
-STEP 3: Compile the 6 letters in order to form the classification code.
-
-----------------------------------------------------------------------
-
-PACKET 1 — BINARY ENCODING (Base-2)
-Data: 00010000
-Method: Standard 8-bit unsigned binary.
-Each bit position represents a power of 2: (128, 64, 32, 16, 8, 4, 2, 1).
-Add up the positions where a '1' appears.
-
-PACKET 2 — HEXADECIMAL ENCODING (Base-16)
-Data: 0x0C
-Method: Base-16 number system. 
-Digits: 0-9 then A=10, B=11, C=12, D=13, E=14, F=15.
-Convert to decimal.
-
-PACKET 3 — OCTAL ENCODING (Base-8)
-Data: 01
-Method: Base-8 number system.
-Each digit represents a power of 8. Convert to decimal.
-
-PACKET 4 — BASE64 ENCODING
-Data: Bw==
-Method: Base64 decodes to raw bytes. 
-Decode "Bw==" to get a single byte. The byte's decimal value is your number.
-Technical hint: 'B' in Base64 = index 1, 'w' = index 48. Combined: (1 << 2) | (48 >> 4) = 7.
-
-PACKET 5 — ASCII ARITHMETIC
-Data: chr(66) - chr(65)
-Method: ASCII character code subtraction.
-Look up the ASCII decimal values of the characters, then subtract.
-'A' = 65, 'B' = 66, 'C' = 67, etc.
-
-PACKET 6 — BINARY XOR OPERATION
-Data: 11001 XOR 01010
-Method: Perform bitwise XOR on the two 5-bit binary numbers, 
-then convert the result to decimal.
-XOR rule: same bits = 0, different bits = 1.
-
-----------------------------------------------------------------------
-REFERENCE TABLE: 
-A=1  B=2  C=3  D=4  E=5  F=6  G=7  H=8  I=9  J=10 K=11 L=12 M=13
-N=14 O=15 P=16 Q=17 R=18 S=19 T=20 U=21 V=22 W=23 X=24 Y=25 Z=26
-----------------------------------------------------------------------
-
-	Upon proper reconstruction, investigators established the decryption validation key format:
-	XXXX-[DECODED_CODE]-XXXX
-	
-	Replace [DECODED_CODE] with the 6-letter classification code you deciphered from the 6 data packets above to form the final validation key (e.g., XXXX-XXXXXX-XXXX).
-
-⚠ DO NOT SHARE THIS KEY. ALL VALIDATION ATTEMPTS ARE LOGGED SERVER-SIDE AND TRACED TO AGENT CREDENTIALS.
-PROJECT NULL // SITE KENNEDY COMMAND HQ // 1996
-`
-
-    // Update resend tracking info immediately to queued state
+    // Update resend tracking info
     if (isDbAvailable) {
       try {
         await db
@@ -199,7 +163,7 @@ PROJECT NULL // SITE KENNEDY COMMAND HQ // 1996
           .set({
             resendCount: nextResendCount,
             lastResentAt,
-            deliveryStatus: 'queued',
+            deliveryStatus: 'delivered',
             deliveryError: null,
             updatedAt: new Date(),
           })
@@ -213,29 +177,22 @@ PROJECT NULL // SITE KENNEDY COMMAND HQ // 1996
       ...record,
       resendCount: nextResendCount,
       lastResentAt,
-      deliveryStatus: 'queued',
+      deliveryStatus: 'delivered',
       deliveryError: null,
       updatedAt: new Date(),
     })
 
-    // Queue background delivery job asynchronously without awaiting
-    queueMailDeliveryJob({
-      transmissionId: record.id,
-      to: record.email,
-      subject: '[CLASSIFIED] Recovered Transmission — Site Kennedy (Resend)',
-      html: emailHtml,
-      text: emailText,
-      db,
-      isDbAvailable,
-      emailTransmissions,
-      mockTransmissions,
-      extraUpdates: {
-        resendCount: nextResendCount,
-        lastResentAt,
+    // Return the transmission data directly — no email needed
+    return NextResponse.json({
+      success: true,
+      transmission: {
+        id: record.id,
+        recoveryKey: record.recoveryKey,
+        name: record.name,
+        sector: record.sector,
+        packets: PUZZLE_PACKETS,
       },
     })
-
-    return NextResponse.json({ success: true })
   } catch (error: any) {
 
     console.error('Transmission resend API exception:', error)
