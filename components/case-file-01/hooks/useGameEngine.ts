@@ -124,7 +124,9 @@ const LEVELS: Level[] = [
       "9,5": {
         id: "a7",
         puzzles: [
-          { type: "question", question: "Mummy Seal Restoration\n\nRepair broken burial seals like a jigsaw before the curse awakens.", puzzleKey: "a7_2" }
+          { type: "lights_out", pattern: [1, 4, 7] },
+          { type: "sequence", sequenceLength: 3 },
+          { type: "weight_balance", targetWeight: 16 }
         ],
         solved: false
       },
