@@ -49,7 +49,8 @@ export default function Stage1({ onComplete, onLogRecovered }: { onComplete: () 
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (inputValue.trim() === anomaly) {
+    const val = inputValue.trim().toLowerCase();
+    if (inputValue.trim() === anomaly || val === "aleph" || val === "aleph symbol") {
       onLogRecovered("log-stage1", "Every integrity test failed for the same reason. SYBIL insisted one symbol never belonged to the archive. None of us could see it.");
       onComplete();
     } else {
@@ -89,7 +90,11 @@ export default function Stage1({ onComplete, onLogRecovered }: { onComplete: () 
               <span 
                 key={idx} 
                 onClick={() => {
-                  if (char === anomaly) setInputValue(anomaly);
+                  if (char === anomaly) {
+                    setInputValue(anomaly);
+                    onLogRecovered("log-stage1", "Every integrity test failed for the same reason. SYBIL insisted one symbol never belonged to the archive. None of us could see it.");
+                    onComplete();
+                  }
                 }}
                 style={{ cursor: char === anomaly ? "pointer" : "default" }}
               >

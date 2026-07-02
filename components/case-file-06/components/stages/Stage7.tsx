@@ -1,21 +1,62 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 export default function Stage7({ onComplete, onLogRecovered, setFilePrinted }: { onComplete: () => void, onLogRecovered: (id: string, text: string) => void, setFilePrinted?: () => void }) {
   const [inputValue, setInputValue] = useState("");
   const [error, setError] = useState(false);
   const [printing, setPrinting] = useState(false);
+  const [questionText, setQuestionText] = useState("Recognize patterns that survive translation");
+  const [isVerifying, setIsVerifying] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  // Load question text from DB
+  useEffect(() => {
+    async function fetchQuestion() {
+      try {
+        const res = await fetch("/api/questions?caseId=06&puzzleKey=stage7");
+        const data = await res.json();
+        if (data.success && data.questions && data.questions.length > 0) {
+          setQuestionText(data.questions[0].question);
+        }
+      } catch (err) {
+        console.error("Failed to load Stage 7 question from DB:", err);
+      }
+    }
+    fetchQuestion();
+  }, []);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (inputValue.trim() === "NULL7") {
-      onLogRecovered("log-stage7", "Intelligence is recognizing patterns that survive translation.");
-      onComplete();
-    } else {
+    if (isVerifying) return;
+    setIsVerifying(true);
+    setError(false);
+
+    try {
+      const res = await fetch("/api/questions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          caseId: "06",
+          puzzleKey: "stage7",
+          answer: inputValue
+        })
+      });
+      const data = await res.json();
+      if (data.success && data.correct) {
+        onLogRecovered("log-stage7", `Intelligence is ${questionText.toLowerCase()}.`);
+        onComplete();
+      } else {
+        setError(true);
+        setTimeout(() => setError(false), 500);
+        setInputValue("");
+      }
+    } catch (err) {
+      console.error("Failed to verify Stage 7 answer:", err);
       setError(true);
       setTimeout(() => setError(false), 500);
       setInputValue("");
+    } finally {
+      setIsVerifying(false);
     }
   };
 
@@ -29,6 +70,7 @@ export default function Stage7({ onComplete, onLogRecovered, setFilePrinted }: {
             type="text" 
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
+            disabled={isVerifying}
             autoFocus
             style={{ 
               flex: 1, 

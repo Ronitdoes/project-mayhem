@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { markCaseCompleted } from "@/components/case-progress";
 import Header from "./Header";
 import Stage1 from "./stages/Stage1";
 import Stage2 from "./stages/Stage2";
@@ -25,6 +26,42 @@ export default function CaseFile06() {
     }, 1000);
     return () => clearInterval(timer);
   }, []);
+
+  // Load DB progress on mount
+  useEffect(() => {
+    async function loadProgress() {
+      try {
+        const res = await fetch("/api/progress?caseId=06");
+        const data = await res.json();
+        if (data.success && data.progress?.case6State) {
+          const state = data.progress.case6State;
+          if (state.stage !== undefined) setStage(state.stage);
+          if (Array.isArray(state.logs)) setLogs(state.logs);
+          if (state.stage7FilePrinted !== undefined) setStage7FilePrinted(state.stage7FilePrinted);
+        }
+      } catch (err) {
+        console.error("Failed to load Case 6 progress:", err);
+      }
+    }
+    loadProgress();
+  }, []);
+
+  // Save progress whenever stage, logs, or stage7FilePrinted change
+  useEffect(() => {
+    if (stage === 1 && logs.length === 0 && !stage7FilePrinted) return;
+    fetch("/api/progress", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ caseId: "06", key: "case6State", value: { stage, logs, stage7FilePrinted } }),
+    }).catch((err) => console.error("Failed to save Case 6 progress:", err));
+  }, [stage, logs, stage7FilePrinted]);
+
+  // Mark Case 6 completed when reaching Stage 8
+  useEffect(() => {
+    if (stage === 8) {
+      markCaseCompleted("06");
+    }
+  }, [stage]);
 
   const addLog = (id: string, text: string) => {
     if (!logs.find(log => log.id === id)) {

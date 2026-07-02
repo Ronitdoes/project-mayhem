@@ -119,7 +119,9 @@ export async function POST(request: NextRequest) {
     const aliases: string[] = []
     let fuzzyThreshold = 1.0
 
-    if (normalizedKey === 'wilhelm_scream') {
+    if (normalizedKey === 'stage7') {
+      aliases.push('null7', 'null-7', 'null 7')
+    } else if (normalizedKey === 'wilhelm_scream') {
       aliases.push('wilhelm')
     } else if (normalizedKey === 'poe_cipher') {
       aliases.push('gil bronza', 'gil broza')
