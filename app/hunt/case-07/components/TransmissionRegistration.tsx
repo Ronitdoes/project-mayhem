@@ -2,14 +2,14 @@
 
 import { useState, useEffect } from 'react'
 import styles from '../operation-deadlight.module.css'
+import type { TransmissionData } from './SecureInbox'
 
 interface TransmissionRegistrationProps {
-  onSuccess: (name: string, email: string, sector: string) => void
+  onSuccess: (name: string, sector: string, transmission: TransmissionData) => void
 }
 
 export function TransmissionRegistration({ onSuccess }: TransmissionRegistrationProps) {
   const [name, setName] = useState('')
-  const [email, setEmail] = useState('')
   const [sector, setSector] = useState('A-BLOCK')
   const [loading, setLoading] = useState(false)
   const [isPreFilled, setIsPreFilled] = useState(false)
@@ -23,7 +23,6 @@ export function TransmissionRegistration({ onSuccess }: TransmissionRegistration
           const data = await res.json()
           if (data.authenticated && data.user) {
             if (data.user.name) setName(data.user.name)
-            if (data.user.email) setEmail(data.user.email)
             setIsPreFilled(true)
           }
         }
@@ -36,7 +35,7 @@ export function TransmissionRegistration({ onSuccess }: TransmissionRegistration
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!name.trim() || !email.trim() || !sector.trim()) return
+    if (!name.trim() || !sector.trim()) return
 
     setLoading(true)
     setError('')
@@ -47,14 +46,13 @@ export function TransmissionRegistration({ onSuccess }: TransmissionRegistration
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: name.trim(),
-          email: email.trim(),
           sector: sector.trim(),
         }),
       })
 
       const data = await res.json()
-      if (res.ok && data.success) {
-        onSuccess(name.trim(), email.trim(), sector.trim())
+      if (res.ok && data.success && data.transmission) {
+        onSuccess(name.trim(), sector.trim(), data.transmission)
       } else {
         setError(data.message || 'Verification registration failed.')
       }
@@ -70,7 +68,7 @@ export function TransmissionRegistration({ onSuccess }: TransmissionRegistration
     <div className={styles.crtTerminal}>
       <div className={styles.crtScanlines} />
       <div className={styles.crtHeader}>
-        <p>SITE KENNEDY — CLASSIFIED TRANSMISSION REGISTRATION</p>
+        <p>SITE KENNEDY — QUARANTINE REGISTRATION CHECKPOINT</p>
         <p>GOVERNMENT CLEARANCE LEVEL II REQUIRED</p>
       </div>
 
@@ -101,20 +99,6 @@ export function TransmissionRegistration({ onSuccess }: TransmissionRegistration
             value={name}
             onChange={e => setName(e.target.value)}
             placeholder="Enter Agent Name..."
-            autoComplete="off"
-            required
-            disabled={loading}
-          />
-        </div>
-
-        <div className={styles.formField}>
-          <label htmlFor="resident-email">SECURED ROUTING EMAIL</label>
-          <input
-            id="resident-email"
-            type="email"
-            value={email}
-            onChange={e => setEmail(e.target.value)}
-            placeholder="agent@aetherion.org"
             autoComplete="off"
             required
             disabled={loading}
@@ -156,5 +140,3 @@ export function TransmissionRegistration({ onSuccess }: TransmissionRegistration
     </div>
   )
 }
-
-

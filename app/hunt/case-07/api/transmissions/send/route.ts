@@ -2,20 +2,14 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { isDbAvailable, db } from '@/db'
 import { emailTransmissions } from '@/db/schema'
-import { setSession, getSession } from '@/app/hunt/case-07/lib/session'
-import { queueMailDeliveryJob } from '@/app/hunt/case-07/lib/brevo'
+import { getSession } from '@/app/hunt/case-07/lib/session'
 import { mockTransmissions, MockTransmission } from '@/app/hunt/case-07/lib/mockDb'
-import { DeadlightTransmissionEmail } from '@/app/hunt/case-07/emails/case-07'
-import { render } from '@react-email/components'
-import React from 'react'
 import { eq, and, gte } from 'drizzle-orm'
 import crypto from 'crypto'
 import { getClientIp, isRateLimited, verifyCsrf } from '@/app/hunt/case-07/lib/rateLimit'
 
-
 const registerSchema = z.object({
   name: z.string().trim().min(1, 'Name is required.'),
-  email: z.string().trim().email('Invalid email address.').toLowerCase(),
   sector: z.string().trim().min(1, 'Sector is required.'),
 })
 
@@ -55,14 +49,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, message: errorMsg }, { status: 400 })
     }
 
-    // Sanitize and escape inputs to prevent HTML injection
+    // Sanitize inputs
     const name = escapeHtml(parsed.data.name)
-    const email = escapeHtml(parsed.data.email)
     const sector = escapeHtml(parsed.data.sector)
+
+    // Get email from session (set during landing page auth)
+    const currentSession = await getSession().catch(() => null)
+    const email = currentSession?.email || `agent-${crypto.randomBytes(4).toString('hex')}@site-kennedy.null`
 
     const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000)
 
-    // Rate Limiting Check (Max 3 sends per email per hour)
+    // Rate Limiting Check (Max 3 sends per name per hour)
     let isRateLimitedByDb = false
     if (isDbAvailable) {
       try {
@@ -71,7 +68,7 @@ export async function POST(request: NextRequest) {
           .from(emailTransmissions)
           .where(
             and(
-              eq(emailTransmissions.email, email),
+              eq(emailTransmissions.name, name),
               gte(emailTransmissions.sentAt, oneHourAgo)
             )
           )
@@ -81,13 +78,13 @@ export async function POST(request: NextRequest) {
       } catch (dbErr) {
         console.error('Database query error in rate limit check:', dbErr)
         const mockRecent = Array.from(mockTransmissions.values()).filter(
-          t => t.email === email && t.sentAt >= oneHourAgo
+          t => t.name === name && t.sentAt >= oneHourAgo
         )
         if (mockRecent.length >= 3) isRateLimitedByDb = true
       }
     } else {
       const mockRecent = Array.from(mockTransmissions.values()).filter(
-        t => t.email === email && t.sentAt >= oneHourAgo
+        t => t.name === name && t.sentAt >= oneHourAgo
       )
       if (mockRecent.length >= 3) {
         isRateLimitedByDb = true
@@ -101,25 +98,17 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Preserve existing teamName if active session exists
-    const currentSession = await getSession().catch(() => null)
-    const teamName = currentSession?.teamName
-
-    // Set user session in cookies (log them in / sync session)
-    const userId = await setSession(name, email, teamName).catch((err) => {
-      console.error('setSession error in send route:', err)
-      return crypto.randomUUID()
-    })
-
-    // Generate unique recovery key using CSPRNG
+    // Generate unique recovery key using CSPRNG (does NOT contain the answer)
     let recoveryKey = ''
     let isUnique = false
     let attempts = 0
 
     while (!isUnique && attempts < 10) {
       attempts++
-      const randomCode = crypto.randomBytes(2).toString('hex').toUpperCase() // e.g. "A2EF"
-      recoveryKey = `NULL-PLAGAS-${randomCode}`
+      const part1 = crypto.randomBytes(2).toString('hex').toUpperCase()
+      const part2 = crypto.randomBytes(3).toString('hex').toUpperCase()
+      const part3 = crypto.randomBytes(2).toString('hex').toUpperCase()
+      recoveryKey = `${part1}-${part2}-${part3}`
 
       if (isDbAvailable) {
         try {
@@ -171,7 +160,7 @@ export async function POST(request: NextRequest) {
       updatedAt: new Date(),
       resendCount: 0,
       lastResentAt: null,
-      deliveryStatus: 'queued',
+      deliveryStatus: 'delivered',
       deliveryError: null,
     }
 
@@ -189,7 +178,7 @@ export async function POST(request: NextRequest) {
           sentAt: newRecord.sentAt,
           createdAt: newRecord.createdAt,
           updatedAt: newRecord.updatedAt,
-          deliveryStatus: 'queued',
+          deliveryStatus: 'delivered',
           deliveryError: null,
         })
       } catch (dbErr) {
@@ -198,97 +187,15 @@ export async function POST(request: NextRequest) {
     }
     mockTransmissions.set(transmissionId, newRecord)
 
-    // Compile email HTML & Text
-    let emailHtml = ''
-    try {
-      const emailElement = React.createElement(DeadlightTransmissionEmail, {
+    // Return transmission metadata — puzzle data is only in the downloadable dossier
+    return NextResponse.json({
+      success: true,
+      transmission: {
+        id: transmissionId,
         name,
         sector,
-        recoveryKey,
-      })
-      emailHtml = await render(emailElement)
-    } catch (renderErr) {
-      console.error('Failed to render React Email element:', renderErr)
-    }
-    const emailText = `
-PROJECT NULL // INTERCEPTED DATA PACKETS // SITE KENNEDY
-----------------------------------------------------------------------
-RECOVERY AGENT: ${name.toUpperCase()} — SECTOR: ${sector.toUpperCase()}
-
-6 encoded data packets were intercepted from the organism's neural 
-network. Each packet uses a different encoding method and contains a 
-single number.
-
-STEP 1: Decode each packet to its decimal value.
-STEP 2: Map each decimal to its position in the alphabet (1=A, 2=B, ... 26=Z).
-STEP 3: Compile the 6 letters in order to form the classification code.
-
-----------------------------------------------------------------------
-
-PACKET 1 — BINARY ENCODING (Base-2)
-Data: 00010000
-Method: Standard 8-bit unsigned binary.
-Each bit position represents a power of 2: (128, 64, 32, 16, 8, 4, 2, 1).
-Add up the positions where a '1' appears.
-
-PACKET 2 — HEXADECIMAL ENCODING (Base-16)
-Data: 0x0C
-Method: Base-16 number system. 
-Digits: 0-9 then A=10, B=11, C=12, D=13, E=14, F=15.
-Convert to decimal.
-
-PACKET 3 — OCTAL ENCODING (Base-8)
-Data: 01
-Method: Base-8 number system.
-Each digit represents a power of 8. Convert to decimal.
-
-PACKET 4 — BASE64 ENCODING
-Data: Bw==
-Method: Base64 decodes to raw bytes. 
-Decode "Bw==" to get a single byte. The byte's decimal value is your number.
-Technical hint: 'B' in Base64 = index 1, 'w' = index 48. Combined: (1 << 2) | (48 >> 4) = 7.
-
-PACKET 5 — ASCII ARITHMETIC
-Data: chr(66) - chr(65)
-Method: ASCII character code subtraction.
-Look up the ASCII decimal values of the characters, then subtract.
-'A' = 65, 'B' = 66, 'C' = 67, etc.
-
-PACKET 6 — BINARY XOR OPERATION
-Data: 11001 XOR 01010
-Method: Perform bitwise XOR on the two 5-bit binary numbers, 
-then convert the result to decimal.
-XOR rule: same bits = 0, different bits = 1.
-
-----------------------------------------------------------------------
-REFERENCE TABLE: 
-A=1  B=2  C=3  D=4  E=5  F=6  G=7  H=8  I=9  J=10 K=11 L=12 M=13
-N=14 O=15 P=16 Q=17 R=18 S=19 T=20 U=21 V=22 W=23 X=24 Y=25 Z=26
-----------------------------------------------------------------------
-
-	Upon proper reconstruction, investigators established the decryption validation key format:
-	XXXX-[DECODED_CODE]-XXXX
-	
-	Replace [DECODED_CODE] with the 6-letter classification code you deciphered from the 6 data packets above to form the final validation key (e.g., XXXX-XXXXXX-XXXX).
-
-⚠ DO NOT SHARE THIS KEY. ALL VALIDATION ATTEMPTS ARE LOGGED SERVER-SIDE AND TRACED TO AGENT CREDENTIALS.
-PROJECT NULL // SITE KENNEDY COMMAND HQ // 1996
-`
-
-    // Queue background delivery job asynchronously without awaiting
-    queueMailDeliveryJob({
-      transmissionId,
-      to: email,
-      subject: '[CLASSIFIED] Recovered Transmission — Site Kennedy',
-      html: emailHtml,
-      text: emailText,
-      db,
-      isDbAvailable,
-      emailTransmissions,
-      mockTransmissions,
+      },
     })
-
-    return NextResponse.json({ success: true })
 
   } catch (error: any) {
     console.error('Transmission send API exception:', error)

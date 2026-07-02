@@ -42,5 +42,10 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
+# local log files
+/artifacts/
 # db seeds
 db-seeds.json
+
+# local log files
+/artifacts/
