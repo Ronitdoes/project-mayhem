@@ -9,11 +9,8 @@ export interface Player {
 export interface Puzzle {
   type: string;
   pattern?: number[];
-  question?: string;
-  answer?: string;
   sequenceLength?: number;
   targetWeight?: number;
-  puzzleKey?: string;
 }
 
 export interface Anomaly {
