@@ -474,6 +474,30 @@
     "answer": "earth"
   },
   {
+    "caseId": "07",
+    "puzzleKey": "packet-answer",
+    "question": "Raw binary frame hex dump payload decoder",
+    "answer": "SHIELD"
+  },
+  {
+    "caseId": "07",
+    "puzzleKey": "cipher-answer",
+    "question": "Vigenère decrypt ciphertext ZXHHPZM with key SHIELD",
+    "answer": "REPLACE"
+  },
+  {
+    "caseId": "07",
+    "puzzleKey": "interlude-1",
+    "question": "Logistics system diagnostic anagram: R A U N Q T I N A E",
+    "answer": "QUARANTINE"
+  },
+  {
+    "caseId": "07",
+    "puzzleKey": "interlude-2",
+    "question": "Logistics system diagnostic 8-bit ASCII binary sequence",
+    "answer": "SURVIVAL"
+  },
+  {
     "caseId": "08",
     "puzzleKey": "p1",
     "question": "Historical incident date timestamp (DD Month YYYY)",
@@ -574,5 +598,11 @@
     "puzzleKey": "stage2",
     "question": "Archive Decryption recovered keyword",
     "answer": "RECOVERY"
+  },
+  {
+    "caseId": "09",
+    "puzzleKey": "morse",
+    "question": "Morse transmission recovered warning signal",
+    "answer": "THE ARCHIVE REMEMBERS WHAT WE FORGOT"
   }
 ]
