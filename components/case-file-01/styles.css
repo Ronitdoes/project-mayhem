@@ -65,8 +65,8 @@
 .minimap-cell { background: #111; }
 .minimap-cell.wall { background: #333; }
 .minimap-cell.path { background: #000; }
-.minimap-cell.anomaly { background: var(--color-danger); }
-.minimap-cell.anomaly.solved { background: var(--color-success); }
+.minimap-cell.anomaly { background: #000; }
+.minimap-cell.anomaly.solved { background: #000; }
 .minimap-cell.exit { background: #555; }
 .minimap-cell.exit.unlocked { background: var(--color-success); }
 .minimap-cell.player { background: var(--color-accent); border-radius: 50%; box-shadow: 0 0 5px var(--color-accent); }

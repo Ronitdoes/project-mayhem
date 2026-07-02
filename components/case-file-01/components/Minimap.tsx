@@ -38,6 +38,14 @@ export function Minimap({ player, anomalies, allSolved, currentMap }: MinimapPro
             else className += "path";
 
             const isPlayerHere = player.x === x && player.y === y;
+            const anomaly = cell === 2 ? anomalies[`${y},${x}`] : null;
+            let label = "";
+            if (anomaly) {
+              const num = parseInt(anomaly.id.replace("a", ""), 10);
+              if (!isNaN(num)) {
+                label = String.fromCharCode(64 + num);
+              }
+            }
 
             return (
               <div
@@ -47,15 +55,31 @@ export function Minimap({ player, anomalies, allSolved, currentMap }: MinimapPro
                   width: '100%',
                   aspectRatio: '1/1',
                   position: 'relative',
-                  backgroundColor: cell === 4 ? 'var(--color-accent)' : undefined
+                  backgroundColor: cell === 4 ? 'var(--color-accent)' : undefined,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
                 }}
               >
+                {label && (
+                  <span style={{
+                    fontSize: '8px',
+                    fontWeight: 'bold',
+                    fontFamily: 'monospace',
+                    color: anomaly?.solved ? 'var(--color-success)' : 'var(--color-danger)',
+                    lineHeight: 1,
+                    zIndex: 2
+                  }}>
+                    {label}
+                  </span>
+                )}
                 {isPlayerHere && (
                   <div className="minimap-cell player" style={{
                     position: 'absolute',
                     top: '50%', left: '50%',
                     transform: 'translate(-50%, -50%)',
-                    width: '60%', height: '60%'
+                    width: '60%', height: '60%',
+                    zIndex: 3
                   }} />
                 )}
               </div>
