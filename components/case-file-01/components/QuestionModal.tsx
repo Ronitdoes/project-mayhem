@@ -439,7 +439,21 @@ function TicTacToePuzzle({ onSolve }: TicTacToePuzzleProps) {
     const winner = checkWinner(newBoard);
     if (winner === 'X') {
       setStatus('won');
-      setTimeout(onSolve, 1500);
+      fetch("/api/questions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          caseId: "01",
+          puzzleKey: "tic_tac_toe",
+          answer: "victory"
+        })
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success && data.correct) {
+          setTimeout(onSolve, 1500);
+        }
+      });
       return;
     } else if (winner === 'draw') {
       setStatus('draw');
@@ -575,7 +589,21 @@ interface WordFindPuzzleProps {
 function WordFindPuzzle({ onSolve }: WordFindPuzzleProps) {
   const [selectedCells, setSelectedCells] = useState<string[]>([]);
   const [foundWords, setFoundWords] = useState<string[]>([]);
-  const [status, setStatus] = useState<'playing' | 'won'>('playing');
+  const [status, setStatus] = useState<'playing' | 'won' | 'loading'>('loading');
+  const [searchWords, setSearchWords] = useState<string[]>([]);
+
+  useEffect(() => {
+    fetch("/api/questions?caseId=01&puzzleKey=word_find")
+      .then(res => res.json())
+      .then(data => {
+        if (data.success && data.questions.length > 0) {
+          const list = data.questions[0].question.split(",");
+          setSearchWords(list);
+          setStatus('playing');
+        }
+      })
+      .catch(err => console.error(err));
+  }, []);
 
   const isCellInFoundWord = (r: number, c: number) => {
     const coord = `${r},${c}`;
@@ -608,9 +636,27 @@ function WordFindPuzzle({ onSolve }: WordFindPuzzleProps) {
           const nextFound = [...foundWords, word];
           setFoundWords(nextFound);
           setSelectedCells([]);
-          if (nextFound.length === 15) {
-            setStatus('won');
-            setTimeout(onSolve, 1500);
+          
+          if (searchWords.length > 0 && nextFound.length === searchWords.length) {
+            // Validate final found words list (sorted) on server
+            const foundSorted = [...nextFound].sort().join(",");
+            fetch("/api/questions", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                caseId: "01",
+                puzzleKey: "word_find",
+                answer: foundSorted
+              })
+            })
+            .then(res => res.json())
+            .then(data => {
+              if (data.success && data.correct) {
+                setStatus('won');
+                setTimeout(onSolve, 1500);
+              }
+            })
+            .catch(err => console.error(err));
           }
           break;
         }
@@ -621,11 +667,9 @@ function WordFindPuzzle({ onSolve }: WordFindPuzzleProps) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.8rem' }}>
       <p className="question-text" style={{ marginBottom: '0.3rem', fontSize: '0.95rem', lineHeight: 1.3 }}>
-        {status === 'playing' ? (
-          "Decipher the ancient glyph grid to locate 15 key terms."
-        ) : (
-          <span style={{ color: 'var(--color-success)', fontWeight: 'bold' }}>TERMINAL ACCESSED - ENCRYPTION SEALED!</span>
-        )}
+        {status === 'loading' && "Loading archive grid..."}
+        {status === 'playing' && "Decipher the ancient glyph grid to locate 15 key terms."}
+        {status === 'won' && <span style={{ color: 'var(--color-success)', fontWeight: 'bold' }}>TERMINAL ACCESSED - ENCRYPTION SEALED!</span>}
       </p>
 
       {/* WORDS LIST */}
@@ -641,7 +685,7 @@ function WordFindPuzzle({ onSolve }: WordFindPuzzleProps) {
         border: '1px solid rgba(212, 175, 55, 0.15)',
         width: '100%'
       }}>
-        {Object.keys(SEARCH_WORDS).map(word => {
+        {searchWords.map(word => {
           const isFound = foundWords.includes(word);
           return (
             <span 
@@ -654,7 +698,7 @@ function WordFindPuzzle({ onSolve }: WordFindPuzzleProps) {
                 border: `1px solid ${isFound ? 'var(--color-success)' : 'rgba(212, 175, 55, 0.4)'}`,
                 color: isFound ? 'var(--color-success)' : 'var(--color-text-muted)',
                 textDecoration: isFound ? 'line-through' : 'none',
-                background: isFound ? 'rgba(46, 204, 113, 0.1)' : 'transparent',
+                background: isFound ? 'rgba(46, 204, 113, 0.15)' : 'transparent',
                 borderRadius: '3px'
               }}
             >
@@ -738,108 +782,96 @@ function WordFindPuzzle({ onSolve }: WordFindPuzzleProps) {
   );
 }
 
-// --- TECH QUIZ LOGIC ---
-interface TechQuestion {
-  question: string;
-  options: string[];
-  correct: number;
-}
 
-const TECH_QUESTIONS: TechQuestion[] = [
-  {
-    question: "What does CPU stand for?",
-    options: ["Central Process Unit", "Central Processing Unit", "Computer Personal Unit", "Central Processor Utility"],
-    correct: 1
-  },
-  {
-    question: "Which of these is a database management system?",
-    options: ["HTML", "CSS", "PostgreSQL", "JSON"],
-    correct: 2
-  },
-  {
-    question: "What is the main function of a router?",
-    options: ["Store files", "Forward data packets between networks", "Run applications", "Display graphics"],
-    correct: 1
-  },
-  {
-    question: "Which protocol is used to secure communication over the web?",
-    options: ["HTTP", "FTP", "HTTPS", "SMTP"],
-    correct: 2
-  },
-  {
-    question: "What does RAM stand for?",
-    options: ["Read Access Memory", "Random Access Memory", "Rapid Action Module", "Run Active Memory"],
-    correct: 1
-  },
-  {
-    question: "What is the standard language used to style web pages?",
-    options: ["HTML", "CSS", "JavaScript", "Python"],
-    correct: 1
-  },
-  {
-    question: "Which company developed the Android operating system?",
-    options: ["Apple", "Microsoft", "Google", "Oracle"],
-    correct: 2
-  },
-  {
-    question: "What is the name of the creator of Python programming language?",
-    options: ["Guido van Rossum", "Bjarne Stroustrup", "James Gosling", "Dennis Ritchie"],
-    correct: 0
-  },
-  {
-    question: "In programming, what is a variable used for?",
-    options: ["Printing text", "Storing data values", "Connecting to databases", "Compiling code"],
-    correct: 1
-  },
-  {
-    question: "Which file format is commonly used to compress images on the web?",
-    options: ["TXT", "ZIP", "JPEG", "PDF"],
-    correct: 2
-  }
-];
 
 interface TechQuizPuzzleProps {
   onSolve: () => void;
 }
 
 function TechQuizPuzzle({ onSolve }: TechQuizPuzzleProps) {
+  const [questions, setQuestions] = useState<{ text: string; options: string[]; puzzleKey: string }[]>([]);
   const [currentIdx, setCurrentIdx] = useState<number>(0);
-  const [status, setStatus] = useState<'playing' | 'correct' | 'wrong' | 'won'>('playing');
+  const [status, setStatus] = useState<'playing' | 'correct' | 'wrong' | 'won' | 'loading'>('loading');
   const [selectedIdx, setSelectedIdx] = useState<number | null>(null);
 
-  const handleAnswerClick = (optIdx: number) => {
-    if (status !== 'playing') return;
+  useEffect(() => {
+    fetch("/api/questions?caseId=01")
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          const items = data.questions
+            .filter((q: any) => q.puzzleKey.startsWith("tech_quiz_"))
+            .map((q: any) => {
+              const parsed = JSON.parse(q.question);
+              return {
+                text: parsed.text,
+                options: parsed.options,
+                puzzleKey: q.puzzleKey
+              };
+            })
+            .sort((a: any, b: any) => {
+              const numA = parseInt(a.puzzleKey.split("_")[2], 10);
+              const numB = parseInt(b.puzzleKey.split("_")[2], 10);
+              return numA - numB;
+            });
+          setQuestions(items);
+          setStatus('playing');
+        }
+      })
+      .catch(err => console.error(err));
+  }, []);
+
+  const handleAnswerClick = async (optIdx: number) => {
+    if (status !== 'playing' || questions.length === 0) return;
     setSelectedIdx(optIdx);
 
-    const q = TECH_QUESTIONS[currentIdx];
-    if (optIdx === q.correct) {
-      setStatus('correct');
-      setTimeout(() => {
-        if (currentIdx === TECH_QUESTIONS.length - 1) {
-          setStatus('won');
-          setTimeout(onSolve, 1000);
-        } else {
-          setCurrentIdx(prev => prev + 1);
+    const q = questions[currentIdx];
+    const selectedOption = q.options[optIdx];
+
+    try {
+      const res = await fetch("/api/questions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          caseId: "01",
+          puzzleKey: q.puzzleKey,
+          answer: selectedOption
+        })
+      });
+      const data = await res.json();
+      if (data.success && data.correct) {
+        setStatus('correct');
+        setTimeout(() => {
+          if (currentIdx === questions.length - 1) {
+            setStatus('won');
+            setTimeout(onSolve, 1000);
+          } else {
+            setCurrentIdx(prev => prev + 1);
+            setStatus('playing');
+            setSelectedIdx(null);
+          }
+        }, 800);
+      } else {
+        setStatus('wrong');
+        setTimeout(() => {
+          setCurrentIdx(0);
           setStatus('playing');
           setSelectedIdx(null);
-        }
-      }, 800);
-    } else {
+        }, 1500);
+      }
+    } catch (err) {
+      console.error(err);
       setStatus('wrong');
-      setTimeout(() => {
-        setCurrentIdx(0);
-        setStatus('playing');
-        setSelectedIdx(null);
-      }, 1500);
     }
   };
 
-  const q = TECH_QUESTIONS[currentIdx];
+  const q = questions[currentIdx];
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%', gap: '1rem' }}>
       <p className="question-text" style={{ marginBottom: '0.2rem', fontSize: '1rem', lineHeight: 1.4 }}>
-        {status === 'playing' && `SECURITY PROTOCOL: Question ${currentIdx + 1} of 10`}
+        {status === 'loading' && "Loading archive protocol..."}
+        {status === 'playing' && `SECURITY PROTOCOL: Question ${currentIdx + 1} of ${questions.length}`}
         {status === 'correct' && <span style={{ color: 'var(--color-success)', fontWeight: 'bold' }}>CORRECT ACCESS CODE - ALIGNING...</span>}
         {status === 'wrong' && <span style={{ color: 'var(--color-danger)', fontWeight: 'bold' }}>ACCESS DENIED - TERMINAL RESETTING...</span>}
         {status === 'won' && <span style={{ color: 'var(--color-success)', fontWeight: 'bold' }}>NODE SECURED - ACCESS GRANTED!</span>}
@@ -857,7 +889,7 @@ function TechQuizPuzzle({ onSolve }: TechQuizPuzzleProps) {
             fontFamily: 'monospace',
             color: 'var(--color-text)'
           }}>
-            {q.question}
+            {q.text}
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%' }}>
@@ -903,12 +935,7 @@ function TechQuizPuzzle({ onSolve }: TechQuizPuzzleProps) {
   );
 }
 
-// --- SPELL CRAFTING LOGIC ---
-interface SpellRecipe {
-  name: string;
-  ingredients: string[]; // e.g. ["IGNIS", "AURA"]
-  description: string;
-}
+
 
 const ELEMENT_ICONS: Record<string, string> = {
   IGNIS: "🔥 IGNIS",
@@ -918,47 +945,47 @@ const ELEMENT_ICONS: Record<string, string> = {
   AETHER: "✨ AETHER"
 };
 
-const SPELL_RECIPES: SpellRecipe[] = [
-  {
-    name: "FIREBALL",
-    ingredients: ["IGNIS", "AURA"],
-    description: "Launch a sphere of searing flame."
-  },
-  {
-    name: "MUD SHIELD",
-    ingredients: ["TERRA", "AQUA"],
-    description: "Raise a barrier of solid earth and water."
-  },
-  {
-    name: "SEALING PORTAL",
-    ingredients: ["IGNIS", "TERRA", "AETHER"],
-    description: "Tear open a portal to bind the anomaly."
-  },
-  {
-    name: "LIGHTNING STRIKE",
-    ingredients: ["IGNIS", "AURA", "AETHER"],
-    description: "Summon a crackling bolt of electrical energy."
-  },
-  {
-    name: "ICE WALL",
-    ingredients: ["AQUA", "AURA"],
-    description: "Form a freezing barrier of solid ice."
-  },
-  {
-    name: "ALCHEMICAL ELIXIR",
-    ingredients: ["AQUA", "TERRA", "AETHER"],
-    description: "Brew the legendary elixir of restoration."
-  }
-];
-
 interface SpellMakingPuzzleProps {
   onSolve: () => void;
 }
 
+const SPELL_META: Record<string, { description: string; ingredients: string[] }> = {
+  FIREBALL: { description: "Launch a sphere of searing flame.", ingredients: ["IGNIS", "AURA"] },
+  "MUD SHIELD": { description: "Raise a barrier of solid earth and water.", ingredients: ["TERRA", "AQUA"] },
+  "SEALING PORTAL": { description: "Tear open a portal to bind the anomaly.", ingredients: ["IGNIS", "TERRA", "AETHER"] },
+  "LIGHTNING STRIKE": { description: "Summon a crackling bolt of electrical energy.", ingredients: ["IGNIS", "AURA", "AETHER"] },
+  "ICE WALL": { description: "Form a freezing barrier of solid ice.", ingredients: ["AQUA", "AURA"] },
+  "ALCHEMICAL ELIXIR": { description: "Brew the legendary elixir of restoration.", ingredients: ["AQUA", "TERRA", "AETHER"] }
+};
+
 function SpellMakingPuzzle({ onSolve }: SpellMakingPuzzleProps) {
+  const [spells, setSpells] = useState<{ name: string; puzzleKey: string }[]>([]);
   const [recipeIdx, setRecipeIdx] = useState<number>(0);
   const [cauldron, setCauldron] = useState<string[]>([]);
-  const [status, setStatus] = useState<'brewing' | 'success' | 'failed' | 'complete'>('brewing');
+  const [status, setStatus] = useState<'brewing' | 'success' | 'failed' | 'complete' | 'loading'>('loading');
+
+  useEffect(() => {
+    fetch("/api/questions?caseId=01")
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          const items = data.questions
+            .filter((q: any) => q.puzzleKey.startsWith("spell_making_"))
+            .map((q: any) => ({
+              name: q.question,
+              puzzleKey: q.puzzleKey
+            }))
+            .sort((a: any, b: any) => {
+              const numA = parseInt(a.puzzleKey.split("_")[2], 10);
+              const numB = parseInt(b.puzzleKey.split("_")[2], 10);
+              return numA - numB;
+            });
+          setSpells(items);
+          setStatus('brewing');
+        }
+      })
+      .catch(err => console.error(err));
+  }, []);
 
   const addIngredient = (ing: string) => {
     if (status !== 'brewing') return;
@@ -971,44 +998,58 @@ function SpellMakingPuzzle({ onSolve }: SpellMakingPuzzleProps) {
     setCauldron([]);
   };
 
-  const castSpell = () => {
-    if (status !== 'brewing') return;
+  const castSpell = async () => {
+    if (status !== 'brewing' || spells.length === 0) return;
 
-    const target = SPELL_RECIPES[recipeIdx];
-    // Check if cauldron has exactly the target ingredients (order-independent)
-    const targetSorted = [...target.ingredients].sort();
-    const cauldronSorted = [...cauldron].sort();
+    const activeSpell = spells[recipeIdx];
+    const mixedSorted = [...cauldron].sort().join(",");
 
-    const isMatch = targetSorted.length === cauldronSorted.length && 
-                    targetSorted.every((val, index) => val === cauldronSorted[index]);
-
-    if (isMatch) {
-      setStatus('success');
-      setTimeout(() => {
-        if (recipeIdx === SPELL_RECIPES.length - 1) {
-          setStatus('complete');
-          setTimeout(onSolve, 1000);
-        } else {
-          setRecipeIdx(prev => prev + 1);
+    try {
+      const res = await fetch("/api/questions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          caseId: "01",
+          puzzleKey: activeSpell.puzzleKey,
+          answer: mixedSorted
+        })
+      });
+      const data = await res.json();
+      if (data.success && data.correct) {
+        setStatus('success');
+        setTimeout(() => {
+          if (recipeIdx === spells.length - 1) {
+            setStatus('complete');
+            setTimeout(onSolve, 1000);
+          } else {
+            setRecipeIdx(prev => prev + 1);
+            setCauldron([]);
+            setStatus('brewing');
+          }
+        }, 1200);
+      } else {
+        setStatus('failed');
+        setTimeout(() => {
           setCauldron([]);
           setStatus('brewing');
-        }
-      }, 1200);
-    } else {
+        }, 1200);
+      }
+    } catch (err) {
+      console.error(err);
       setStatus('failed');
-      setTimeout(() => {
-        setCauldron([]);
-        setStatus('brewing');
-      }, 1200);
     }
   };
 
-  const currentRecipe = SPELL_RECIPES[recipeIdx];
+  const currentRecipe = spells[recipeIdx] ? {
+    name: spells[recipeIdx].name,
+    ...(SPELL_META[spells[recipeIdx].name] || { description: "Ancient formula.", ingredients: [] })
+  } : null;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%', gap: '1rem' }}>
       <p className="question-text" style={{ marginBottom: '0.2rem', fontSize: '1rem', lineHeight: 1.4 }}>
-        {status === 'brewing' && `SPELL BOOK: Recipe ${recipeIdx + 1} of ${SPELL_RECIPES.length}`}
+        {status === 'loading' && "Loading grimoire..."}
+        {status === 'brewing' && `SPELL BOOK: Recipe ${recipeIdx + 1} of ${spells.length}`}
         {status === 'success' && <span style={{ color: 'var(--color-success)', fontWeight: 'bold' }}>SPELL CAST SUCCESSFUL! ADVANCING...</span>}
         {status === 'failed' && <span style={{ color: 'var(--color-danger)', fontWeight: 'bold' }}>CAULDRON BACKFIRED - DISPELLING MIX...</span>}
         {status === 'complete' && <span style={{ color: 'var(--color-success)', fontWeight: 'bold' }}>ANOMALY SEALED - ENCRYPTION BROKEN!</span>}
@@ -1141,27 +1182,6 @@ function SpellMakingPuzzle({ onSolve }: SpellMakingPuzzleProps) {
   );
 }
 
-// --- TOMB BUILDER LOGIC ---
-const BLUEPRINTS = [
-  [[0,0,0], [0,3,0], [1,1,1]], // 1. The Basic Mastaba
-  [[0,0,0], [2,0,2], [1,1,1]], // 2. The Double Pillars
-  [[0,4,0], [0,3,0], [1,1,1]], // 3. The Sanctuary
-  [[0,4,0], [2,3,2], [1,1,1]], // 4. The Royal Tomb
-  [[0,0,0], [3,0,3], [1,1,1]], // 5. The Twin Chambers
-  [[0,4,0], [0,2,0], [1,1,1]], // 6. The Capstone Tower
-  [[4,0,4], [2,3,2], [1,1,1]]  // 7. The Grand Temple
-];
-
-const BLUEPRINT_NAMES = [
-  "The Basic Mastaba",
-  "The Double Pillars",
-  "The Sanctuary",
-  "The Royal Tomb",
-  "The Twin Chambers",
-  "The Capstone Tower",
-  "The Grand Temple"
-];
-
 const BLOCK_NAMES = ["EMPTY", "🪨 BASE", "🏛️ PILLAR", "⚰️ CHAMBER", "👑 CAPSTONE"];
 const BLOCK_COLORS = [
   "transparent",
@@ -1197,59 +1217,99 @@ interface TombBuilderPuzzleProps {
 }
 
 function TombBuilderPuzzle({ onSolve }: TombBuilderPuzzleProps) {
+  const [levels, setLevels] = useState<{ name: string; grid: number[][]; puzzleKey: string }[]>([]);
   const [tombIdx, setTombIdx] = useState<number>(0);
   const [grid, setGrid] = useState<number[][]>([
     [0, 0, 0],
     [0, 0, 0],
     [0, 0, 0]
   ]);
-  const [status, setStatus] = useState<'drafting' | 'success' | 'completed'>('drafting');
+  const [status, setStatus] = useState<'drafting' | 'success' | 'completed' | 'loading'>('loading');
+
+  useEffect(() => {
+    fetch("/api/questions?caseId=01")
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          const items = data.questions
+            .filter((q: any) => q.puzzleKey.startsWith("tomb_builder_"))
+            .map((q: any) => {
+              const parsed = JSON.parse(q.question);
+              return {
+                name: parsed.name,
+                grid: parsed.grid,
+                puzzleKey: q.puzzleKey
+              };
+            })
+            .sort((a: any, b: any) => {
+              const numA = parseInt(a.puzzleKey.split("_")[2], 10);
+              const numB = parseInt(b.puzzleKey.split("_")[2], 10);
+              return numA - numB;
+            });
+          setLevels(items);
+          setStatus('drafting');
+        }
+      })
+      .catch(err => console.error(err));
+  }, []);
 
   const handleCellClick = (r: number, c: number) => {
-    if (status !== 'drafting') return;
+    if (status !== 'drafting' || levels.length === 0) return;
 
-    const target = BLUEPRINTS[tombIdx];
-    if (!target) return;
+    const activeLvl = levels[tombIdx];
+    if (!activeLvl) return;
 
     setGrid(prev => {
       const next = prev.map((row, ri) => 
         row.map((cell, ci) => (ri === r && ci === c) ? (cell + 1) % 5 : cell)
       );
 
-      // Check match
-      const isMatch = next.every((row, ri) => 
-        row.every((cell, ci) => cell === target[ri][ci])
-      );
-
-      if (isMatch) {
-        setStatus('success');
-        setTimeout(() => {
-          if (tombIdx === BLUEPRINTS.length - 1) {
-            setStatus('completed');
-            setTimeout(onSolve, 1000);
-          } else {
-            setTombIdx(prev => prev + 1);
-            setGrid([
-              [0, 0, 0],
-              [0, 0, 0],
-              [0, 0, 0]
-            ]);
-            setStatus('drafting');
-          }
-        }, 1000);
-      }
+      // Verify grid match via API POST!
+      const gridString = next.map(row => row.join(",")).join("|");
+      
+      fetch("/api/questions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          caseId: "01",
+          puzzleKey: activeLvl.puzzleKey,
+          answer: gridString
+        })
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success && data.correct) {
+          setStatus('success');
+          setTimeout(() => {
+            if (tombIdx === levels.length - 1) {
+              setStatus('completed');
+              setTimeout(onSolve, 1000);
+            } else {
+              setTombIdx(prev => prev + 1);
+              setGrid([
+                [0, 0, 0],
+                [0, 0, 0],
+                [0, 0, 0]
+              ]);
+              setStatus('drafting');
+            }
+          }, 1000);
+        }
+      })
+      .catch(err => console.error(err));
 
       return next;
     });
   };
 
-  const currentBlueprint = BLUEPRINTS[tombIdx];
-  const currentBlueprintName = BLUEPRINT_NAMES[tombIdx] || "";
+  const currentBlueprint = levels[tombIdx]?.grid;
+  const currentBlueprintName = levels[tombIdx]?.name || "";
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%', gap: '1rem' }}>
       <p className="question-text" style={{ marginBottom: '0.2rem', fontSize: '1rem', lineHeight: 1.4 }}>
-        {status === 'drafting' && `CONSTRUCTION: Blueprint ${tombIdx + 1} of ${BLUEPRINTS.length}`}
+        {status === 'loading' && "Loading blueprints..."}
+        {status === 'drafting' && `CONSTRUCTION: Blueprint ${tombIdx + 1} of ${levels.length}`}
         {status === 'success' && <span style={{ color: 'var(--color-success)', fontWeight: 'bold' }}>BLUEPRINT ALIGNED! COMMENCING NEXT PHASE...</span>}
         {status === 'completed' && <span style={{ color: 'var(--color-success)', fontWeight: 'bold' }}>ALL TOMBS SECURED - SACRED BALANCE RESTORED!</span>}
       </p>
@@ -1401,21 +1461,43 @@ function SealRevealPuzzle({ onSolve }: SealRevealPuzzleProps) {
     };
   }, []);
 
-  const handleIdentification = (selectedName: string) => {
+  const handleIdentification = async (selectedName: string) => {
     if (phase !== 'identifying') return;
 
-    if (selectedName === SEALS[targetIdx].name) {
-      setPhase('success');
-      setTimeout(onSolve, 1500);
-    } else {
+    const activeSeal = SEALS[targetIdx];
+    const expectedKey = activeSeal.name === "Scarab Beetle" 
+      ? "seal_reveal_scarab"
+      : activeSeal.name === "Uraeus Cobra"
+      ? "seal_reveal_uraeus"
+      : "seal_reveal_eye";
+
+    try {
+      const res = await fetch("/api/questions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          caseId: "01",
+          puzzleKey: expectedKey,
+          answer: selectedName
+        })
+      });
+      const data = await res.json();
+      if (data.success && data.correct) {
+        setPhase('success');
+        setTimeout(onSolve, 1500);
+      } else {
+        setPhase('failed');
+        setTimeout(() => {
+          // Reset puzzle with a new seal
+          const nextIdx = (targetIdx + Math.floor(Math.random() * (SEALS.length - 1)) + 1) % SEALS.length;
+          setTargetIdx(nextIdx);
+          setCleanedCells({});
+          setPhase('cleaning');
+        }, 1500);
+      }
+    } catch (err) {
+      console.error(err);
       setPhase('failed');
-      setTimeout(() => {
-        // Reset puzzle with a new seal
-        const nextIdx = (targetIdx + Math.floor(Math.random() * (SEALS.length - 1)) + 1) % SEALS.length;
-        setTargetIdx(nextIdx);
-        setCleanedCells({});
-        setPhase('cleaning');
-      }, 1500);
     }
   };
 
@@ -1552,32 +1634,37 @@ function SealRevealPuzzle({ onSolve }: SealRevealPuzzleProps) {
 }
 
 // --- PAPYRUS RESTORE LOGIC ---
-const CORRECT_PAPYRUS_VERSES = [
-  "I am Osiris, the lord of eternity, who rules the underworld.",
-  "I have traversed the dark rivers of the Duat to reach the hall of Ma'at.",
-  "My heart has been weighed against the feather of truth and found pure.",
-  "Now, I speak the words of power to open the golden gates of the east.",
-  "Let the sun god Ra arise and cast his eternal light upon the sands."
-];
-
 interface PapyrusRestorePuzzleProps {
   onSolve: () => void;
 }
 
+interface MappedVerse {
+  text: string;
+  originalIdx: number;
+}
+
 function PapyrusRestorePuzzle({ onSolve }: PapyrusRestorePuzzleProps) {
-  const [verses, setVerses] = useState<string[]>([]);
-  const [status, setStatus] = useState<'sorting' | 'success' | 'failed'>('sorting');
+  const [verses, setVerses] = useState<MappedVerse[]>([]);
+  const [status, setStatus] = useState<'sorting' | 'success' | 'failed' | 'loading'>('loading');
 
   // Shuffle on mount
   useEffect(() => {
-    let shuffled = [...CORRECT_PAPYRUS_VERSES];
-    // Keep shuffling until it's not in the correct order
-    while (true) {
-      shuffled = shuffled.sort(() => Math.random() - 0.5);
-      const isCorrect = shuffled.every((val, idx) => val === CORRECT_PAPYRUS_VERSES[idx]);
-      if (!isCorrect) break;
-    }
-    setVerses(shuffled);
+    fetch("/api/questions?caseId=01&puzzleKey=papyrus_restore")
+      .then(res => res.json())
+      .then(data => {
+        if (data.success && data.questions.length > 0) {
+          const parsed: string[] = JSON.parse(data.questions[0].question);
+          let shuffled = parsed.map((v, idx) => ({ text: v, originalIdx: idx }));
+          while (true) {
+            shuffled = shuffled.sort(() => Math.random() - 0.5);
+            const isCorrect = shuffled.every((val, idx) => val.text === parsed[idx]);
+            if (!isCorrect) break;
+          }
+          setVerses(shuffled);
+          setStatus('sorting');
+        }
+      })
+      .catch(err => console.error(err));
   }, []);
 
   const moveItem = (index: number, direction: 'up' | 'down') => {
@@ -1594,26 +1681,42 @@ function PapyrusRestorePuzzle({ onSolve }: PapyrusRestorePuzzleProps) {
     });
   };
 
-  const checkSequence = () => {
+  const checkSequence = async () => {
     if (status !== 'sorting') return;
 
-    const isCorrect = verses.every((val, idx) => val === CORRECT_PAPYRUS_VERSES[idx]);
+    const sequenceString = verses.map(v => v.originalIdx).join(",");
 
-    if (isCorrect) {
-      setStatus('success');
-      setTimeout(onSolve, 1500);
-    } else {
+    try {
+      const res = await fetch("/api/questions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          caseId: "01",
+          puzzleKey: "papyrus_restore",
+          answer: sequenceString
+        })
+      });
+      const data = await res.json();
+      if (data.success && data.correct) {
+        setStatus('success');
+        setTimeout(onSolve, 1500);
+      } else {
+        setStatus('failed');
+        setTimeout(() => {
+          setStatus('sorting');
+        }, 1500);
+      }
+    } catch (err) {
+      console.error(err);
       setStatus('failed');
-      setTimeout(() => {
-        setStatus('sorting');
-      }, 1500);
     }
   };
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%', gap: '1rem' }}>
       <p className="question-text" style={{ marginBottom: '0.2rem', fontSize: '0.95rem', lineHeight: 1.4 }}>
-        {status === 'sorting' && "Arrange the torn papyrus verses in the correct chronological order:"}
+        {status === 'loading' && "Loading scroll fragments..."}
+        {status === 'sorting' && "Arrange the jumbled papyrus verses in the correct chronological order:"}
         {status === 'success' && <span style={{ color: 'var(--color-success)', fontWeight: 'bold' }}>PAPYRUS SECURED - TRANSLATION COMMITTED!</span>}
         {status === 'failed' && <span style={{ color: 'var(--color-danger)', fontWeight: 'bold' }}>FRAGMENTS MISALIGNED - Sequence is incoherent.</span>}
       </p>
@@ -1622,7 +1725,7 @@ function PapyrusRestorePuzzle({ onSolve }: PapyrusRestorePuzzleProps) {
       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%' }}>
         {verses.map((verse, index) => (
           <div
-            key={verse}
+            key={verse.originalIdx}
             style={{
               display: 'flex',
               alignItems: 'center',
@@ -1680,7 +1783,7 @@ function PapyrusRestorePuzzle({ onSolve }: PapyrusRestorePuzzleProps) {
               lineHeight: 1.3,
               userSelect: 'none'
             }}>
-              "{verse}"
+              "{verse.text}"
             </div>
           </div>
         ))}
@@ -1708,62 +1811,47 @@ const PRESSURE_PLATES_GRID = [
   ['🌊', '⛰️', '🔥']
 ];
 
-interface PlateLevel {
-  sequence: string[];
-  clue: string;
-}
-
-const PRESSURE_LEVELS: PlateLevel[] = [
-  {
-    sequence: ['🌊', '☉', '⭐', '𓆗', '⛰️'],
-    clue: "Walk the path of creation: Drink from the river (🌊), bask in the solar fire (☉), ascend to the celestial star (⭐), receive the wisdom of the serpent (𓆗), and finally stand upon the eternal mountain (⛰️)."
-  },
-  {
-    sequence: ['☽', '𓅓', '𓃠'],
-    clue: "The hunt begins under the silver moon (☽). The silent owl (𓅓) watches from above, as the sacred cat (𓃠) stalks through the temple shadows."
-  },
-  {
-    sequence: ['🌊', '🔥', '⛰️', '☉'],
-    clue: "Balance the primal elements: Quench the earth with the river (🌊), ignite the sacred fire (🔥), shape the mighty mountain (⛰️), and rise to meet the eternal sun (☉)."
-  },
-  {
-    sequence: ['☉', '𓅓', '⭐'],
-    clue: "The golden sun (☉) rises high, followed by the flight of the solar owl (𓅓) as it ascends to the highest star (⭐)."
-  },
-  {
-    sequence: ['𓆗', '🔥', '🌊', '☽'],
-    clue: "The serpent (𓆗) crawls through the hot ashes of the fire (🔥), slides into the cool waters (🌊), and rests beneath the crescent moon (☽)."
-  },
-  {
-    sequence: ['⛰️', '🔥', '🌊'],
-    clue: "The earth mountain (⛰️) cracks open with volcanic fire (🔥), before it is cooled by the waters (🌊) of the Nile."
-  },
-  {
-    sequence: ['⭐', '☽', '𓃠', '𓅓'],
-    clue: "First shines the distant star (⭐) beside the shining moon (☽). The cat (𓃠) leaps, guided by the silent flight of the owl (𓅓)."
-  },
-  {
-    sequence: ['🔥', '🌊', '☉', '☽', '⭐'],
-    clue: "Combine the cosmos: Ignite the flames (🔥), pour the river (🌊), align the golden sun (☉) with the silver moon (☽), and invoke the eternal star (⭐)."
-  },
-  {
-    sequence: ['𓅓', '𓆗', '𓃠', '⛰️'],
-    clue: "The guardian owl (𓅓) speaks to the royal cobra (𓆗). The sacred cat (𓃠) guides the spirit to the tombs of the eternal mountain (⛰️)."
-  }
-];
-
 interface PressurePlatesPuzzleProps {
   onSolve: () => void;
 }
 
 function PressurePlatesPuzzle({ onSolve }: PressurePlatesPuzzleProps) {
+  const [levels, setLevels] = useState<{ clue: string; sequence: string[]; puzzleKey: string }[]>([]);
   const [levelIdx, setLevelIdx] = useState<number>(0);
   const [activeSequence, setActiveSequence] = useState<string[]>([]);
-  const [status, setStatus] = useState<'playing' | 'success' | 'error' | 'completed'>('playing');
+  const [status, setStatus] = useState<'playing' | 'success' | 'error' | 'completed' | 'loading'>('loading');
 
-  const currentLevel = PRESSURE_LEVELS[levelIdx];
+  useEffect(() => {
+    fetch("/api/questions?caseId=01")
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          const items = data.questions
+            .filter((q: any) => q.puzzleKey.startsWith("pressure_plates_"))
+            .map((q: any) => {
+              // Extract sequence from clue string using parentheses
+              const sequence = q.question.match(/\(([^)]+)\)/g)?.map((s: string) => s.slice(1, -1)) || [];
+              return {
+                clue: q.question,
+                sequence,
+                puzzleKey: q.puzzleKey
+              };
+            })
+            .sort((a: any, b: any) => {
+              const numA = parseInt(a.puzzleKey.split("_")[2], 10);
+              const numB = parseInt(b.puzzleKey.split("_")[2], 10);
+              return numA - numB;
+            });
+          setLevels(items);
+          setStatus('playing');
+        }
+      })
+      .catch(err => console.error(err));
+  }, []);
 
-  const handlePlateClick = (symbol: string) => {
+  const currentLevel = levels[levelIdx];
+
+  const handlePlateClick = async (symbol: string) => {
     if (status !== 'playing' || !currentLevel) return;
 
     const nextIdx = activeSequence.length;
@@ -1775,16 +1863,45 @@ function PressurePlatesPuzzle({ onSolve }: PressurePlatesPuzzleProps) {
 
       if (nextSeq.length === currentLevel.sequence.length) {
         setStatus('success');
-        setTimeout(() => {
-          if (levelIdx === PRESSURE_LEVELS.length - 1) {
-            setStatus('completed');
-            setTimeout(onSolve, 1000);
+        
+        try {
+          const answerString = nextSeq.join(",");
+          const res = await fetch("/api/questions", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              caseId: "01",
+              puzzleKey: currentLevel.puzzleKey,
+              answer: answerString
+            })
+          });
+          const data = await res.json();
+          if (data.success && data.correct) {
+            setTimeout(() => {
+              if (levelIdx === levels.length - 1) {
+                setStatus('completed');
+                setTimeout(onSolve, 1000);
+              } else {
+                setLevelIdx(prev => prev + 1);
+                setActiveSequence([]);
+                setStatus('playing');
+              }
+            }, 1000);
           } else {
-            setLevelIdx(prev => prev + 1);
+            setStatus('error');
+            setTimeout(() => {
+              setActiveSequence([]);
+              setStatus('playing');
+            }, 1200);
+          }
+        } catch (err) {
+          console.error(err);
+          setStatus('error');
+          setTimeout(() => {
             setActiveSequence([]);
             setStatus('playing');
-          }
-        }, 1000);
+          }, 1200);
+        }
       }
     } else {
       setStatus('error');
@@ -1798,7 +1915,8 @@ function PressurePlatesPuzzle({ onSolve }: PressurePlatesPuzzleProps) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%', gap: '1rem' }}>
       <p className="question-text" style={{ marginBottom: '0.2rem', fontSize: '0.95rem', lineHeight: 1.4 }}>
-        {status === 'playing' && `TRIAL: Sequence ${levelIdx + 1} of ${PRESSURE_LEVELS.length}`}
+        {status === 'loading' && "Loading pressure plate trials..."}
+        {status === 'playing' && `TRIAL: Sequence ${levelIdx + 1} of ${levels.length}`}
         {status === 'error' && <span style={{ color: 'var(--color-danger)', fontWeight: 'bold' }}>PLATE TRIGGERED A TRAP! RESETTING TILES...</span>}
         {status === 'success' && <span style={{ color: 'var(--color-success)', fontWeight: 'bold' }}>SEQUENCE ALIGNED! FLOORS SHIFTING...</span>}
         {status === 'completed' && <span style={{ color: 'var(--color-success)', fontWeight: 'bold' }}>CHAMBER UNLOCKED - PRESSURE SECURED!</span>}
