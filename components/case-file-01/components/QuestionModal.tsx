@@ -564,24 +564,6 @@ const WORD_SEARCH_GRID = [
   ['A', 'B', 'C', 'D', 'E', 'D', 'E', 'A', 'T', 'H', 'F', 'G']
 ];
 
-const SEARCH_WORDS = {
-  TOMB: ["0,0", "0,1", "0,2", "0,3"],
-  SEAL: ["0,7", "0,8", "0,9", "0,10"],
-  CRYPT: ["1,1", "1,2", "1,3", "1,4", "1,5"],
-  GOLD: ["1,8", "1,9", "1,10", "1,11"],
-  OSIRIS: ["2,0", "2,1", "2,2", "2,3", "2,4", "2,5"],
-  ANUBIS: ["3,6", "3,7", "3,8", "3,9", "3,10", "3,11"],
-  SCARAB: ["4,0", "4,1", "4,2", "4,3", "4,4", "4,5"],
-  MUMMY: ["5,1", "5,2", "5,3", "5,4", "5,5"],
-  EGYPT: ["6,7", "6,8", "6,9", "6,10", "6,11"],
-  SPHINX: ["7,0", "7,1", "7,2", "7,3", "7,4", "7,5"],
-  TEMPLE: ["8,6", "8,7", "8,8", "8,9", "8,10", "8,11"],
-  RUIN: ["9,1", "9,2", "9,3", "9,4"],
-  SACRED: ["9,6", "9,7", "9,8", "9,9", "9,10", "9,11"],
-  CURSE: ["10,3", "10,4", "10,5", "10,6", "10,7"],
-  DEATH: ["11,5", "11,6", "11,7", "11,8", "11,9"]
-};
-
 interface WordFindPuzzleProps {
   onSolve: () => void;
 }
@@ -591,14 +573,16 @@ function WordFindPuzzle({ onSolve }: WordFindPuzzleProps) {
   const [foundWords, setFoundWords] = useState<string[]>([]);
   const [status, setStatus] = useState<'playing' | 'won' | 'loading'>('loading');
   const [searchWords, setSearchWords] = useState<string[]>([]);
+  const [coordinates, setCoordinates] = useState<Record<string, string[]>>({});
 
   useEffect(() => {
     fetch("/api/questions?caseId=01&puzzleKey=word_find")
       .then(res => res.json())
       .then(data => {
         if (data.success && data.questions.length > 0) {
-          const list = data.questions[0].question.split(",");
-          setSearchWords(list);
+          const parsed = JSON.parse(data.questions[0].question);
+          setSearchWords(parsed.words);
+          setCoordinates(parsed.coordinates);
           setStatus('playing');
         }
       })
@@ -607,7 +591,7 @@ function WordFindPuzzle({ onSolve }: WordFindPuzzleProps) {
 
   const isCellInFoundWord = (r: number, c: number) => {
     const coord = `${r},${c}`;
-    return Object.entries(SEARCH_WORDS).some(([word, coords]) => 
+    return Object.entries(coordinates).some(([word, coords]) => 
       foundWords.includes(word) && coords.includes(coord)
     );
   };
@@ -629,7 +613,7 @@ function WordFindPuzzle({ onSolve }: WordFindPuzzleProps) {
     setSelectedCells(newSelected);
 
     // Check if matching any word
-    for (const [word, coords] of Object.entries(SEARCH_WORDS)) {
+    for (const [word, coords] of Object.entries(coordinates)) {
       if (!foundWords.includes(word)) {
         const isMatch = coords.every(co => newSelected.includes(co)) && newSelected.length === coords.length;
         if (isMatch) {
@@ -949,17 +933,8 @@ interface SpellMakingPuzzleProps {
   onSolve: () => void;
 }
 
-const SPELL_META: Record<string, { description: string; ingredients: string[] }> = {
-  FIREBALL: { description: "Launch a sphere of searing flame.", ingredients: ["IGNIS", "AURA"] },
-  "MUD SHIELD": { description: "Raise a barrier of solid earth and water.", ingredients: ["TERRA", "AQUA"] },
-  "SEALING PORTAL": { description: "Tear open a portal to bind the anomaly.", ingredients: ["IGNIS", "TERRA", "AETHER"] },
-  "LIGHTNING STRIKE": { description: "Summon a crackling bolt of electrical energy.", ingredients: ["IGNIS", "AURA", "AETHER"] },
-  "ICE WALL": { description: "Form a freezing barrier of solid ice.", ingredients: ["AQUA", "AURA"] },
-  "ALCHEMICAL ELIXIR": { description: "Brew the legendary elixir of restoration.", ingredients: ["AQUA", "TERRA", "AETHER"] }
-};
-
 function SpellMakingPuzzle({ onSolve }: SpellMakingPuzzleProps) {
-  const [spells, setSpells] = useState<{ name: string; puzzleKey: string }[]>([]);
+  const [spells, setSpells] = useState<{ name: string; description: string; ingredients: string[]; puzzleKey: string }[]>([]);
   const [recipeIdx, setRecipeIdx] = useState<number>(0);
   const [cauldron, setCauldron] = useState<string[]>([]);
   const [status, setStatus] = useState<'brewing' | 'success' | 'failed' | 'complete' | 'loading'>('loading');
@@ -971,10 +946,15 @@ function SpellMakingPuzzle({ onSolve }: SpellMakingPuzzleProps) {
         if (data.success) {
           const items = data.questions
             .filter((q: any) => q.puzzleKey.startsWith("spell_making_"))
-            .map((q: any) => ({
-              name: q.question,
-              puzzleKey: q.puzzleKey
-            }))
+            .map((q: any) => {
+              const parsed = JSON.parse(q.question);
+              return {
+                name: parsed.name,
+                description: parsed.description,
+                ingredients: parsed.ingredients,
+                puzzleKey: q.puzzleKey
+              };
+            })
             .sort((a: any, b: any) => {
               const numA = parseInt(a.puzzleKey.split("_")[2], 10);
               const numB = parseInt(b.puzzleKey.split("_")[2], 10);
@@ -1040,10 +1020,7 @@ function SpellMakingPuzzle({ onSolve }: SpellMakingPuzzleProps) {
     }
   };
 
-  const currentRecipe = spells[recipeIdx] ? {
-    name: spells[recipeIdx].name,
-    ...(SPELL_META[spells[recipeIdx].name] || { description: "Ancient formula.", ingredients: [] })
-  } : null;
+  const currentRecipe = spells[recipeIdx] || null;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%', gap: '1rem' }}>
@@ -1408,28 +1385,45 @@ interface SealType {
   name: string;
   char: string;
   desc: string;
+  puzzleKey: string;
 }
-
-const SEALS: SealType[] = [
-  { name: "Scarab Beetle", char: "𓆣", desc: "Symbol of rebirth, creation, and transformation." },
-  { name: "Uraeus Cobra", char: "𓆗", desc: "Symbol of sovereignty, royalty, and divine authority." },
-  { name: "Eye of Horus", char: "𓂀", desc: "Symbol of protection, royal power, and good health." }
-];
 
 interface SealRevealPuzzleProps {
   onSolve: () => void;
 }
 
 function SealRevealPuzzle({ onSolve }: SealRevealPuzzleProps) {
+  const [seals, setSeals] = useState<SealType[]>([]);
   const [targetIdx, setTargetIdx] = useState<number>(0);
   const [cleanedCells, setCleanedCells] = useState<Record<string, boolean>>({});
-  const [phase, setPhase] = useState<'cleaning' | 'identifying' | 'success' | 'failed'>('cleaning');
+  const [phase, setPhase] = useState<'cleaning' | 'identifying' | 'success' | 'failed' | 'loading'>('loading');
   const [isMouseDown, setIsMouseDown] = useState<boolean>(false);
 
-  // Initialize random seal on mount
   useEffect(() => {
-    const randomIdx = Math.floor(Math.random() * SEALS.length);
-    setTargetIdx(randomIdx);
+    fetch("/api/questions?caseId=01")
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          const items = data.questions
+            .filter((q: any) => q.puzzleKey.startsWith("seal_reveal_"))
+            .map((q: any) => {
+              const parsed = JSON.parse(q.question);
+              return {
+                name: parsed.name,
+                char: parsed.char,
+                desc: parsed.desc,
+                puzzleKey: q.puzzleKey
+              };
+            });
+          setSeals(items);
+          if (items.length > 0) {
+            const randomIdx = Math.floor(Math.random() * items.length);
+            setTargetIdx(randomIdx);
+          }
+          setPhase('cleaning');
+        }
+      })
+      .catch(err => console.error(err));
   }, []);
 
   const totalCells = 64; // 8x8 grid
@@ -1462,22 +1456,16 @@ function SealRevealPuzzle({ onSolve }: SealRevealPuzzleProps) {
   }, []);
 
   const handleIdentification = async (selectedName: string) => {
-    if (phase !== 'identifying') return;
+    if (phase !== 'identifying' || seals.length === 0) return;
 
-    const activeSeal = SEALS[targetIdx];
-    const expectedKey = activeSeal.name === "Scarab Beetle" 
-      ? "seal_reveal_scarab"
-      : activeSeal.name === "Uraeus Cobra"
-      ? "seal_reveal_uraeus"
-      : "seal_reveal_eye";
-
+    const activeSeal = seals[targetIdx];
     try {
       const res = await fetch("/api/questions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           caseId: "01",
-          puzzleKey: expectedKey,
+          puzzleKey: activeSeal.puzzleKey,
           answer: selectedName
         })
       });
@@ -1489,7 +1477,7 @@ function SealRevealPuzzle({ onSolve }: SealRevealPuzzleProps) {
         setPhase('failed');
         setTimeout(() => {
           // Reset puzzle with a new seal
-          const nextIdx = (targetIdx + Math.floor(Math.random() * (SEALS.length - 1)) + 1) % SEALS.length;
+          const nextIdx = (targetIdx + Math.floor(Math.random() * (seals.length - 1)) + 1) % seals.length;
           setTargetIdx(nextIdx);
           setCleanedCells({});
           setPhase('cleaning');
@@ -1501,7 +1489,7 @@ function SealRevealPuzzle({ onSolve }: SealRevealPuzzleProps) {
     }
   };
 
-  const targetSeal = SEALS[targetIdx];
+  const targetSeal = seals[targetIdx];
 
   return (
     <div 
@@ -1509,6 +1497,7 @@ function SealRevealPuzzle({ onSolve }: SealRevealPuzzleProps) {
       onMouseDown={handleMouseDown}
     >
       <p className="question-text" style={{ marginBottom: '0.2rem', fontSize: '0.95rem', lineHeight: 1.4 }}>
+        {phase === 'loading' && "Loading ancient seal parameters..."}
         {phase === 'cleaning' && `CLEANING DUST: ${percentCleared}% Cleared (Wipe over the sand to reveal the seal)`}
         {phase === 'identifying' && <span style={{ color: 'var(--color-accent)', fontWeight: 'bold' }}>SEAL REVEALED! IDENTIFY THE GLYPH TO AUTHENTICATE:</span>}
         {phase === 'success' && <span style={{ color: 'var(--color-success)', fontWeight: 'bold' }}>ACCESS GRANTED - SEAL AUTHENTICATED!</span>}
@@ -1612,7 +1601,7 @@ function SealRevealPuzzle({ onSolve }: SealRevealPuzzleProps) {
           maxWidth: '320px',
           marginTop: '0.4rem'
         }}>
-          {SEALS.map(seal => (
+          {seals.map(seal => (
             <button
               key={seal.name}
               onClick={() => handleIdentification(seal.name)}
