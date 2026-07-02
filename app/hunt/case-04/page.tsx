@@ -1,10 +1,10 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
-import { MirrorScriptPuzzle, FortuneTellerPuzzle, BrokenTicketPuzzle, AudioGamePuzzle, FakeLoginPuzzle } from "@/components/case-file-04";
+import { MirrorScriptPuzzle, FortuneTellerPuzzle, BrokenTicketPuzzle, AudioGamePuzzle, FakeLoginPuzzle, GhostPuzzle } from "@/components/case-file-04";
 import { markCaseCompleted } from "@/components/case-progress";
 
-type StageType = "mirror" | "fortune" | "ticket" | "audio" | "login" | "completed";
+type StageType = "mirror" | "fortune" | "ticket" | "audio" | "login" | "ghost" | "completed";
 
 export default function Page() {
   const [stage, setStage] = useState<StageType>("mirror");
@@ -66,7 +66,11 @@ export default function Page() {
   }
 
   if (stage === "login") {
-    return <FakeLoginPuzzle onSolved={() => saveStage("completed")} />;
+    return <FakeLoginPuzzle onSolved={() => saveStage("ghost")} />;
+  }
+
+  if (stage === "ghost") {
+    return <GhostPuzzle onSolved={() => saveStage("completed")} />;
   }
 
   return (
