@@ -475,6 +475,7 @@ export default function HuntPage() {
                         src={`/Cards-hunt/case${num}.avif`}
                         alt={`Case File ${num}`}
                         fill
+                        priority
                         sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
                         className="object-cover scale-[1.2] z-0"
                       />
@@ -505,6 +506,7 @@ export default function HuntPage() {
                     src="/Cards-hunt/case09.avif"
                     alt="Case File 09"
                     fill
+                    priority
                     sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
                     className="object-cover scale-[1.2] opacity-35 filter grayscale z-0"
                   />
@@ -537,6 +539,7 @@ export default function HuntPage() {
                       src={`/Cards-hunt/case${num}.avif`}
                       alt={`Case File ${num}`}
                       fill
+                      priority
                       sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
                       className="object-cover scale-[1.2] transition-transform duration-300 group-hover:scale-[1.25] z-0"
                     />
