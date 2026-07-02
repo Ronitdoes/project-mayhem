@@ -450,31 +450,6 @@ export default function HuntPage() {
               );
             })}
           </div>
-
-          {/* Detailed text list showing statuses of cases 1-8 */}
-          <div className="flex flex-col gap-1.5 border-t border-zinc-800/50 pt-2.5 font-mono text-[9px] w-full max-h-[160px] overflow-y-auto pr-1">
-            {Array.from({ length: 8 }, (_, i) => {
-              const num = String(i + 1).padStart(2, "0");
-              const isCompleted = completedList[num];
-              const caseTitle = SYMBOL_DETAILS[num]?.title || `Case File ${num}`;
-              return (
-                <div key={num} className="flex items-center justify-between text-zinc-400 w-full gap-4">
-                  <span className="truncate max-w-[170px] text-zinc-300 font-medium">
-                    CF-{num}: {caseTitle}
-                  </span>
-                  {isCompleted ? (
-                    <span className="text-emerald-400 font-bold uppercase tracking-wider flex-shrink-0">
-                      SECURED
-                    </span>
-                  ) : (
-                    <span className="text-zinc-600 uppercase tracking-wider flex-shrink-0">
-                      LOCKED
-                    </span>
-                  )}
-                </div>
-              );
-            })}
-          </div>
         </section>
       )}
 
@@ -498,14 +473,20 @@ export default function HuntPage() {
                   key={origIndex}
                   className="flex flex-col items-center justify-center h-36 md:h-44 bg-zinc-950/20 border border-emerald-950/40 rounded-xl p-6 relative overflow-hidden select-none cursor-not-allowed group"
                 >
+                  {["01", "02", "03", "04", "05", "06", "07", "08", "09"].includes(num) && (
+                    <>
+                      <img
+                        src={`/Cards-hunt/case${num}.png`}
+                        alt={`Case File ${num}`}
+                        className="absolute inset-0 w-full h-full object-cover scale-[1.2] z-0"
+                      />
+                      <div className="absolute inset-0 bg-black/60 z-0" />
+                    </>
+                  )}
                   {/* Muted green matrix overlay */}
-                  <div className="absolute inset-0 bg-gradient-to-b from-transparent to-emerald-500/[0.01]" />
+                  <div className="absolute inset-0 bg-gradient-to-b from-transparent to-emerald-500/[0.01] z-10" />
                   
-                  <span className="font-mono text-xs md:text-sm tracking-[0.25em] text-emerald-500/25 uppercase line-through transition-colors duration-300">
-                    {fileName}
-                  </span>
-                  
-                  <div className="absolute bottom-3 right-4 font-mono text-[9px] tracking-[0.2em] text-emerald-500/60 bg-emerald-950/20 px-2 py-0.5 border border-emerald-500/20 rounded">
+                  <div className="absolute bottom-3 right-4 font-mono text-[9px] tracking-[0.2em] text-emerald-500/60 bg-emerald-950/20 px-2 py-0.5 border border-emerald-500/20 rounded z-20">
                     SECURED
                   </div>
                 </div>
@@ -522,18 +503,20 @@ export default function HuntPage() {
                   key={origIndex}
                   className="flex flex-col items-center justify-center h-36 md:h-44 bg-zinc-950/40 border border-red-950/30 rounded-xl p-6 relative overflow-hidden select-none cursor-not-allowed group"
                 >
+                  <img
+                    src="/Cards-hunt/case09.png"
+                    alt="Case File 09"
+                    className="absolute inset-0 w-full h-full object-cover scale-[1.2] opacity-35 filter grayscale z-0"
+                  />
+                  <div className="absolute inset-0 bg-black/60 z-0" />
                   {/* Subtle red overlay */}
-                  <div className="absolute inset-0 bg-gradient-to-b from-transparent to-red-500/[0.01]" />
+                  <div className="absolute inset-0 bg-gradient-to-b from-transparent to-red-500/[0.01] z-10" />
                   
-                  <span className="font-mono text-xs md:text-sm tracking-[0.25em] text-red-500/20 uppercase transition-colors duration-300">
-                    {fileName}
-                  </span>
-
-                  <div className="absolute top-4 left-4 flex items-center justify-center text-red-500/40">
+                  <div className="absolute top-4 left-4 flex items-center justify-center text-red-500/40 z-20">
                     <Lock size={14} className="animate-pulse" />
                   </div>
                   
-                  <div className="absolute bottom-3 right-4 font-mono text-[9px] tracking-[0.2em] text-red-500/60 bg-red-950/20 px-2 py-0.5 border border-red-500/20 rounded">
+                  <div className="absolute bottom-3 right-4 font-mono text-[9px] tracking-[0.2em] text-red-500/60 bg-red-950/20 px-2 py-0.5 border border-red-500/20 rounded z-20">
                     LOCKED
                   </div>
                 </div>
@@ -548,12 +531,18 @@ export default function HuntPage() {
                 href={`/hunt/case-${num}`}
                 className={`flex items-center justify-center h-36 md:h-44 bg-zinc-950/60 border border-zinc-800/80 rounded-xl p-6 cursor-pointer transition-all duration-300 ${colors.hoverBorder} ${colors.hoverShadow} hover:-translate-y-1 group relative overflow-hidden`}
               >
+                {["01", "02", "03", "04", "05", "06", "07", "08", "09"].includes(num) && (
+                  <>
+                    <img
+                      src={`/Cards-hunt/case${num}.png`}
+                      alt={`Case File ${num}`}
+                      className="absolute inset-0 w-full h-full object-cover scale-[1.2] transition-transform duration-300 group-hover:scale-[1.25] z-0"
+                    />
+                    <div className="absolute inset-0 bg-black/50 group-hover:bg-black/35 transition-colors duration-300 z-0" />
+                  </>
+                )}
                 {/* Subtle glow border effect on hover */}
-                <div className={`absolute inset-0 bg-gradient-to-b from-transparent ${colors.bgGradient} opacity-0 group-hover:opacity-100 transition-opacity duration-500`} />
-                
-                <span className={`font-mono text-xs md:text-sm tracking-[0.25em] text-zinc-400 ${colors.textColor} transition-colors uppercase duration-300`}>
-                  {fileName}
-                </span>
+                <div className={`absolute inset-0 bg-gradient-to-b from-transparent ${colors.bgGradient} opacity-0 group-hover:opacity-100 transition-opacity duration-500 z-10`} />
               </Link>
             );
           });
