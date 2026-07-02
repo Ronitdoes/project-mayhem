@@ -7,7 +7,7 @@ import dynamic from 'next/dynamic';
 import { useAudio } from '@/components/AudioProvider';
 import { useGameEngine } from '../hooks/useGameEngine';
 import { Minimap } from './Minimap';
-import { QuestionModal } from './QuestionModal';
+import { QuestionModal, TypewriterText } from './QuestionModal';
 import { StoryModal } from './StoryModal';
 import { ArrowUp, ArrowDown, CornerUpLeft, CornerUpRight, Map } from 'lucide-react';
 
@@ -25,6 +25,8 @@ export default function GameContainer() {
   } = useGameEngine();
 
   const [showMap, setShowMap] = useState<boolean>(true);
+  const [showBootScreen, setShowBootScreen] = useState<boolean>(true);
+  const [bootCompleted, setBootCompleted] = useState<boolean>(false);
 
   useEffect(() => {
     changeBGM('/cathedral.wav');
@@ -55,6 +57,41 @@ export default function GameContainer() {
 
   const solvedCount = Object.values(anomalies).filter(a => a.solved).length;
   const totalAnomalies = Object.keys(anomalies).length;
+
+  if (showBootScreen) {
+    return (
+      <div className="game-container" style={{ justifyContent: 'center', alignItems: 'center', backgroundColor: '#050202', width: '100vw', height: '100vh', position: 'fixed', inset: 0, zIndex: 300 }}>
+        <div className="scanline-overlay"></div>
+        <div className="hud-box" style={{ maxWidth: '500px', width: '90%', padding: '40px', border: '1px solid var(--color-accent-dim)' }}>
+          <h2 style={{ fontFamily: 'var(--font-title)', color: 'var(--color-accent)', letterSpacing: '4px', marginBottom: '1.5rem', textAlign: 'center' }}>
+            THE DYING FLAME
+          </h2>
+          <div style={{ color: 'var(--color-danger)', fontWeight: 'bold', fontFamily: 'var(--font-mono)', marginBottom: '1.5rem', letterSpacing: '2px', fontSize: '0.9rem', textAlign: 'center' }}>
+            STATUS: CORRUPTED
+          </div>
+          <div className="question-text" style={{ textAlign: 'left', minHeight: '185px', fontFamily: 'var(--font-mono)', color: 'var(--color-text)', fontSize: '0.95rem', lineHeight: '1.8' }}>
+            <TypewriterText 
+              text={"Among the ruins,\nseven anomalies survived.\n\nEach concealed\na fragment of the truth.\n\nPROJECT NULL\nbegan the investigation."} 
+              speed={30} 
+              onComplete={() => setBootCompleted(true)} 
+            />
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'center', marginTop: '2.5rem' }}>
+            {bootCompleted && (
+              <button 
+                type="button" 
+                onClick={() => setShowBootScreen(false)} 
+                className="basic-btn primary-btn"
+                style={{ width: '100%' }}
+              >
+                BEGIN INVESTIGATION
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="game-container">
@@ -124,31 +161,54 @@ export default function GameContainer() {
       {showStory && <StoryModal onClose={finishStory} />}
 
       {gameWon && (
-        <div className="win-screen">
-          <h1 className="glitch-text" data-text="FLAME REKINDLED">
-            FLAME STOKED
-          </h1>
-          <p className="win-subtext">The fire grows warm. The timeline has stabilized.</p>
-          <div style={{ marginTop: '2rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem' }}>
-            <button 
-              onClick={() => { markCaseCompleted("03"); window.location.href = '/hunt'; }}
-              className="basic-btn"
-              style={{
-                padding: '0.75rem 2rem',
-                fontSize: '1rem',
-                border: '1px solid var(--color-accent)',
-                color: 'var(--color-accent)',
-                background: 'rgba(0, 0, 0, 0.5)',
-                cursor: 'pointer',
-                letterSpacing: '2px',
-                textTransform: 'uppercase'
-              }}
-            >
-              Return to Hub
-            </button>
-            <span style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', fontFamily: 'monospace' }}>
-              Redirecting automatically in 5 seconds...
-            </span>
+        <div className="win-screen" style={{ backgroundColor: '#050202', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+          <div className="scanline-overlay"></div>
+          <div className="hud-box" style={{ maxWidth: '500px', width: '90%', padding: '40px', border: '1px solid var(--color-success)', boxShadow: '0 0 35px rgba(5, 242, 146, 0.2)' }}>
+            <h2 style={{ fontFamily: 'var(--font-title)', color: 'var(--color-success)', letterSpacing: '4px', marginBottom: '1.5rem', textAlign: 'center' }}>
+              CASE CONCLUSION
+            </h2>
+            <div style={{ color: 'var(--color-text-muted)', fontFamily: 'var(--font-mono)', marginBottom: '0.5rem', letterSpacing: '1px', fontSize: '0.8rem' }}>
+              CASE STATUS:
+            </div>
+            <div style={{ color: 'var(--color-success)', fontWeight: 'bold', fontFamily: 'var(--font-mono)', marginBottom: '1.5rem', letterSpacing: '2px', fontSize: '1.1rem' }}>
+              ARCHIVE: RESTORED
+            </div>
+            <div style={{ color: 'var(--color-text-muted)', fontFamily: 'var(--font-mono)', marginBottom: '0.5rem', letterSpacing: '1px', fontSize: '0.8rem' }}>
+              FIRST FLAME:
+            </div>
+            <div style={{ color: 'var(--color-accent)', fontWeight: 'bold', fontFamily: 'var(--font-mono)', marginBottom: '1.5rem', letterSpacing: '2px', fontSize: '1.1rem' }}>
+              UNKNOWN
+            </div>
+            
+            <div className="question-text" style={{ textAlign: 'left', minHeight: '100px', fontFamily: 'var(--font-mono)', fontSize: '0.95rem', lineHeight: '1.8' }}>
+              <TypewriterText 
+                text={"✓ Seven Anomalies Solved\n\nAdditional records unlocked..."} 
+                speed={40}
+              />
+            </div>
+            
+            <div style={{ marginTop: '2rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem' }}>
+              <button 
+                onClick={() => { markCaseCompleted("03"); window.location.href = '/hunt'; }}
+                className="basic-btn"
+                style={{
+                  width: '100%',
+                  padding: '0.75rem 2rem',
+                  fontSize: '1rem',
+                  border: '1.5px solid var(--color-success)',
+                  color: 'var(--color-success)',
+                  background: 'rgba(0, 0, 0, 0.5)',
+                  cursor: 'pointer',
+                  letterSpacing: '2px',
+                  textTransform: 'uppercase'
+                }}
+              >
+                Return to Hub
+              </button>
+              <span style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', fontFamily: 'monospace', marginTop: '8px' }}>
+                Redirecting automatically in 5 seconds...
+              </span>
+            </div>
           </div>
         </div>
       )}
