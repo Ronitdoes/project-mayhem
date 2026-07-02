@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { isCaseCompleted } from "@/components/case-progress";
 import { Lock, X, Menu } from "lucide-react";
 import gsap from "gsap";
@@ -346,10 +347,15 @@ export default function HuntPage() {
   return (
     <main 
       className="flex flex-col items-center min-h-screen w-full text-white pt-16 md:pt-24 px-6 pb-24 relative overflow-hidden bg-cover bg-center bg-no-repeat"
-      style={{
-        backgroundImage: "url('/Hunt/Background-Image.avif')",
-      }}
     >
+      <Image
+        src="/Hunt/Background-Image.avif"
+        alt="Background"
+        fill
+        priority
+        sizes="100vw"
+        className="object-cover pointer-events-none -z-10"
+      />
       {/* Premium dark cinematic overlays */}
       <div className="absolute inset-0 bg-black/50 pointer-events-none z-0" />
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_0%,rgba(0,0,0,0.65)_100%)] pointer-events-none z-0" />
@@ -411,9 +417,11 @@ export default function HuntPage() {
                     onClick={() => setSelectedSymbolCase(num)}
                     className="relative w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 flex items-center justify-center border border-amber-500/20 bg-amber-950/10 hover:bg-amber-950/20 rounded-xl transition-all duration-300 hover:border-amber-400/50 hover:shadow-[0_0_15px_rgba(245,158,11,0.25)] hover:-translate-y-0.5 cursor-pointer group select-none flex-shrink-0"
                   >
-                    <img
+                    <Image
                       src={`/Symbols/cf${i + 1}.avif`}
                       alt={`Case ${num} Symbol`}
+                      width={36}
+                      height={36}
                       className="w-5 h-5 sm:w-7 sm:h-7 md:w-9 md:h-9 object-contain filter drop-shadow-[0_0_6px_rgba(245,158,11,0.45)]"
                     />
                     {/* Subtle hover tooltip */}
@@ -463,10 +471,12 @@ export default function HuntPage() {
                 >
                   {["01", "02", "03", "04", "05", "06", "07", "08", "09"].includes(num) && (
                     <>
-                      <img
+                      <Image
                         src={`/Cards-hunt/case${num}.avif`}
                         alt={`Case File ${num}`}
-                        className="absolute inset-0 w-full h-full object-cover scale-[1.2] z-0"
+                        fill
+                        sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                        className="object-cover scale-[1.2] z-0"
                       />
                       <div className="absolute inset-0 bg-black/60 z-0" />
                     </>
@@ -491,10 +501,12 @@ export default function HuntPage() {
                   key={origIndex}
                   className="flex flex-col items-center justify-center h-36 md:h-44 bg-zinc-950/40 border border-red-950/30 rounded-xl p-6 relative overflow-hidden select-none cursor-not-allowed group"
                 >
-                  <img
+                  <Image
                     src="/Cards-hunt/case09.avif"
                     alt="Case File 09"
-                    className="absolute inset-0 w-full h-full object-cover scale-[1.2] opacity-35 filter grayscale z-0"
+                    fill
+                    sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                    className="object-cover scale-[1.2] opacity-35 filter grayscale z-0"
                   />
                   <div className="absolute inset-0 bg-black/60 z-0" />
                   {/* Subtle red overlay */}
@@ -521,10 +533,12 @@ export default function HuntPage() {
               >
                 {["01", "02", "03", "04", "05", "06", "07", "08", "09"].includes(num) && (
                   <>
-                    <img
+                    <Image
                       src={`/Cards-hunt/case${num}.avif`}
                       alt={`Case File ${num}`}
-                      className="absolute inset-0 w-full h-full object-cover scale-[1.2] transition-transform duration-300 group-hover:scale-[1.25] z-0"
+                      fill
+                      sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                      className="object-cover scale-[1.2] transition-transform duration-300 group-hover:scale-[1.25] z-0"
                     />
                     <div className="absolute inset-0 bg-black/50 group-hover:bg-black/35 transition-colors duration-300 z-0" />
                   </>
@@ -541,10 +555,15 @@ export default function HuntPage() {
       {showUnlockOverlay && solvedCaseForAnim && (
         <div 
           className="fixed inset-0 z-45 flex flex-col items-center justify-center bg-cover bg-center bg-no-repeat overflow-hidden select-none animate-[fadeIn_0.5s_ease-out]"
-          style={{
-            backgroundImage: "url('/Hunt/Background-Image.avif')",
-          }}
         >
+          <Image
+            src="/Hunt/Background-Image.avif"
+            alt="Background"
+            fill
+            priority
+            sizes="100vw"
+            className="object-cover pointer-events-none -z-10"
+          />
           {/* Premium dark cinematic overlays */}
           <div className="absolute inset-0 bg-black/55 pointer-events-none z-0" />
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_0%,rgba(0,0,0,0.7)_100%)] pointer-events-none z-0" />
@@ -578,9 +597,11 @@ export default function HuntPage() {
             {/* Central Symbol */}
             <div className="relative w-44 h-44 md:w-52 md:h-52 z-10 flex items-center justify-center bg-cyan-950/10 border border-cyan-500/20 rounded-2xl backdrop-blur-sm p-6 shadow-[0_0_50px_rgba(6,182,212,0.1)] center-symbol-container overflow-hidden">
               <div className="absolute inset-0 bg-gradient-to-b from-transparent to-cyan-500/[0.05]" />
-              <img
+              <Image
                 src={`/Symbols/cf${parseInt(solvedCaseForAnim, 10)}.avif`}
                 alt="Recovered Symbol"
+                width={200}
+                height={200}
                 className="w-full h-full object-contain filter drop-shadow-[0_0_15px_rgba(6,182,212,0.6)] center-symbol-img"
               />
             </div>
@@ -625,9 +646,11 @@ export default function HuntPage() {
             <div className="flex flex-col items-center text-center">
               <div className="w-36 h-36 flex items-center justify-center bg-cyan-950/10 border border-cyan-500/10 rounded-xl p-4 mb-6 shadow-inner relative">
                 <div className="absolute inset-0 bg-gradient-to-b from-transparent to-cyan-500/[0.04]" />
-                <img
+                <Image
                   src={`/Symbols/cf${parseInt(selectedSymbolCase, 10)}.avif`}
                   alt={`Case ${selectedSymbolCase} Symbol`}
+                  width={144}
+                  height={144}
                   className="w-full h-full object-contain filter drop-shadow-[0_0_10px_rgba(6,182,212,0.4)]"
                 />
               </div>
@@ -664,9 +687,11 @@ export default function HuntPage() {
             top: 0,
           }}
         >
-          <img
+          <Image
             src={`/Symbols/cf${parseInt(solvedCaseForAnim, 10)}.avif`}
             alt="Flying Symbol"
+            width={180}
+            height={180}
             className="w-full h-full object-contain filter drop-shadow-[0_0_10px_rgba(6,182,212,0.5)]"
           />
         </div>

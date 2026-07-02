@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
 import { markCaseCompleted } from "@/components/case-progress";
 import { ImageOrderingEngine } from "./ImageOrderingEngine";
@@ -494,10 +495,15 @@ export default function CaseFile09() {
   return (
     <div
       className="min-h-screen w-full text-white bg-cover bg-center bg-no-repeat flex flex-col relative overflow-x-hidden font-mono"
-      style={{
-        backgroundImage: "url('/Hunt/Background-Image.avif')",
-      }}
     >
+      <Image
+        src="/Hunt/Background-Image.avif"
+        alt="Background"
+        fill
+        priority
+        sizes="100vw"
+        className="object-cover object-center pointer-events-none -z-10"
+      />
       {/* Background cinematic dark overlays */}
       <div className="absolute inset-0 bg-black/75 pointer-events-none z-0" />
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_20%,rgba(0,0,0,0.85)_100%)] pointer-events-none z-0" />

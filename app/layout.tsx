@@ -17,6 +17,11 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Cascade",
   description: "Decipher anomalies, restore timeline stability.",
+  icons: {
+    icon: "/preloader-assets/Logo.avif",
+    shortcut: "/preloader-assets/Logo.avif",
+    apple: "/preloader-assets/Logo.avif",
+  },
 };
 
 export default function RootLayout({

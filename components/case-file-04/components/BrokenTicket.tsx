@@ -509,10 +509,12 @@ export default function BrokenTicket({
                                 {idx + 1}
                               </span>
                               {belongs && matched && (
-                                <img
+                                <Image
+                                  unoptimized
                                   src={matched.dataUrl}
                                   alt=""
-                                  className="w-full h-full object-cover absolute inset-0 pointer-events-none rounded-sm"
+                                  fill
+                                  className="object-cover pointer-events-none rounded-sm"
                                 />
                               )}
                               {selectedPieceId !== null && !belongs && (
@@ -550,10 +552,12 @@ export default function BrokenTicket({
                                       : "border-white/5 hover:border-white/10"
                                   } ${disabled ? "pointer-events-none opacity-50" : ""}`}
                                 >
-                                  <img
+                                  <Image
+                                    unoptimized
                                     src={item.dataUrl}
                                     alt=""
-                                    className="w-full h-full object-cover rounded pointer-events-none"
+                                    fill
+                                    className="object-cover rounded pointer-events-none"
                                   />
                                 </div>
                               );

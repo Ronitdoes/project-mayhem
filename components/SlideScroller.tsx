@@ -2,6 +2,7 @@
 
 import { useRef } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { useGSAP } from "@gsap/react";
@@ -514,10 +515,13 @@ export default function SlideScroller() {
       {/* Image Layer Stack */}
       <div className="absolute inset-0 w-full h-full z-0 bg-[#020204]">
         {storytellingSlides.map((slide, i) => (
-          <img
+          <Image
             key={i}
             src={encodeURI(slide.image)}
             alt={slide.title}
+            fill
+            sizes="100vw"
+            priority={i === 0}
             className={`slide-img slide-img-${i} absolute inset-0 w-full h-full object-cover pointer-events-none select-none scale-105`}
             style={{ opacity: i === 0 ? 1 : 0 }}
           />
