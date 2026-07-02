@@ -31,36 +31,13 @@ const DEFAULT_DEMO_STATE: SessionData = {
   wrongAttempts: {},
 }
 
-const SESSION_SECRET = process.env.SESSION_SECRET || 'a-very-secure-random-secret-for-cryptic-hunt-default'
+import { signCookie, verifyCookie } from '@/lib/auth-session'
 
-function signCookie(value: string): string {
-  const hmac = crypto.createHmac('sha256', SESSION_SECRET)
-  hmac.update(value)
-  const signature = hmac.digest('base64url')
-  return `${value}.${signature}`
-}
-
-function verifyCookie(cookieValue: string): string | null {
-  const parts = cookieValue.split('.')
-  if (parts.length !== 2) return null
-  const [value, signature] = parts
-  const expectedSignature = crypto.createHmac('sha256', SESSION_SECRET).update(value).digest('base64url')
-  
-  const sigBuffer = Buffer.from(signature)
-  const expectedBuffer = Buffer.from(expectedSignature)
-  if (sigBuffer.length !== expectedBuffer.length) {
-    return null
-  }
-  if (crypto.timingSafeEqual(sigBuffer, expectedBuffer)) {
-    return value
-  }
-  return null
-}
 
 export async function getSession(): Promise<SessionData | null> {
   const cookieStore = await cookies()
   const rawSessionId = cookieStore.get('auth_session')?.value
-  const sessionId = rawSessionId ? verifyCookie(rawSessionId) : null
+  const sessionId = rawSessionId ? await verifyCookie(rawSessionId) : null
   
   // Require auth cookie — do not auto-authenticate
   if (!sessionId) {
@@ -70,7 +47,7 @@ export async function getSession(): Promise<SessionData | null> {
   if (!isDbAvailable) {
     // Demo Mode: read state from cookie, or create a default session state
     const demoStateRawSigned = cookieStore.get('aetherion_demo_state')?.value
-    const demoStateRaw = demoStateRawSigned ? verifyCookie(demoStateRawSigned) : null
+    const demoStateRaw = demoStateRawSigned ? await verifyCookie(demoStateRawSigned) : null
     if (demoStateRaw) {
       try {
         const parsed = JSON.parse(demoStateRaw) as SessionData
@@ -178,8 +155,8 @@ export async function setSession(name: string, email: string, teamName?: string,
       teamName,
       password,
     }
-    cookieStore.set('auth_session', signCookie(newUserId), cookieOptions)
-    cookieStore.set('aetherion_demo_state', signCookie(JSON.stringify(newSessionState)), cookieOptions)
+    cookieStore.set('auth_session', await signCookie(newUserId), cookieOptions)
+    cookieStore.set('aetherion_demo_state', await signCookie(JSON.stringify(newSessionState)), cookieOptions)
     return newUserId
   }
 
@@ -227,7 +204,7 @@ export async function setSession(name: string, email: string, teamName?: string,
       }
     }
 
-    cookieStore.set('auth_session', signCookie(user.id), cookieOptions)
+    cookieStore.set('auth_session', await signCookie(user.id), cookieOptions)
     return user.id
   } catch (error: any) {
     console.error('Database write error in setSession:', error)
@@ -235,7 +212,7 @@ export async function setSession(name: string, email: string, teamName?: string,
       throw error
     }
     // Fall back to cookie session if DB write fails
-    cookieStore.set('auth_session', signCookie(newUserId), cookieOptions)
+    cookieStore.set('auth_session', await signCookie(newUserId), cookieOptions)
     return newUserId
   }
 }
@@ -249,7 +226,7 @@ export async function saveDemoState(state: SessionData) {
     secure: isProd, 
     sameSite: 'lax' as const 
   }
-  cookieStore.set('aetherion_demo_state', signCookie(JSON.stringify(state)), cookieOptions)
+  cookieStore.set('aetherion_demo_state', await signCookie(JSON.stringify(state)), cookieOptions)
 }
 
 export async function clearSession() {

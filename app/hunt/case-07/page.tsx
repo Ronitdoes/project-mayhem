@@ -20,21 +20,6 @@ import styles from './operation-deadlight.module.css'
 export default function OperationDeadlightPage() {
   const { isComplete, markComplete, hydrated } = useActProgress()
 
-  useEffect(() => {
-    async function initSession() {
-      try {
-        const res = await fetch('/hunt/case-07/api/progress')
-        const data = await res.json()
-        if (!data.authenticated) {
-          window.location.href = '/';
-        }
-      } catch (err) {
-        console.error('Session initialization failed:', err)
-      }
-    }
-    initSession()
-  }, [])
-
   // Sync completion with main progress database/cookies
   useEffect(() => {
     if (hydrated && isComplete('act-8')) {

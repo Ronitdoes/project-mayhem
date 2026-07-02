@@ -142,12 +142,6 @@ export default function HuntPage() {
   const flyerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    // Check if session is active in this tab session
-    if (!sessionStorage.getItem("isLoggedIn")) {
-      window.location.href = '/';
-      return;
-    }
-
     // 1. Initial client-side check from cookies
     const list: Record<string, boolean> = {};
     const caseFilesNums = Array.from({ length: 9 }, (_, i) => String(i + 1).padStart(2, "0"));
@@ -162,12 +156,6 @@ export default function HuntPage() {
         const res = await fetch("/api/cases/progress");
         const data = await res.json();
         
-        // Redirect to login if not authenticated
-        if (data.success && !data.authenticated) {
-          window.location.href = '/';
-          return;
-        }
-
         if (data.success && data.userId) {
           setUserId(data.userId);
         }
