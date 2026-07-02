@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useRef, useState } from "react";
+import Image from "next/image";
 import gsap from "gsap";
 import { useGSAP } from "@gsap/react";
 import { usePreloader } from "./PreloaderContext";
@@ -240,10 +241,13 @@ export default function Preloader() {
             className="logo-glow absolute w-36 h-36 bg-white/5 rounded-full blur-2xl"
             style={{ opacity: 0, visibility: "hidden" }}
           />
-          <img
+          <Image
             ref={logoRef}
-            src="/preloader-assets/Logo.png"
+            src="/preloader-assets/Logo.avif"
             alt="IEEE CS MUJ Logo"
+            width={112}
+            height={112}
+            priority
             className="logo-img relative w-24 h-24 md:w-28 md:h-28 object-contain"
             style={{ opacity: 0, visibility: "hidden" }}
           />

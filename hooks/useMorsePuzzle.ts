@@ -7,13 +7,33 @@ export function useMorsePuzzle() {
   const [error, setError] = useState(false);
   const [hintIndex, setHintIndex] = useState(-1);
   const [isSolved, setIsSolved] = useState(false);
+  const [isVerifying, setIsVerifying] = useState(false);
 
-  const handleSubmit = () => {
-    if (validateAnswer(answer, morsePuzzleData.expectedAnswer)) {
-      setIsSolved(true);
-      setError(false);
-    } else {
+  const handleSubmit = async () => {
+    if (isVerifying) return;
+    setIsVerifying(true);
+    try {
+      const res = await fetch("/api/questions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          caseId: "09",
+          puzzleKey: "morse",
+          answer: answer
+        })
+      });
+      const data = await res.json();
+      if (data.success && data.correct) {
+        setIsSolved(true);
+        setError(false);
+      } else {
+        setError(true);
+      }
+    } catch (err) {
+      console.error(err);
       setError(true);
+    } finally {
+      setIsVerifying(false);
     }
   };
 

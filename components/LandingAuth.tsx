@@ -4,6 +4,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { motion } from 'framer-motion';
+import Image from 'next/image';
 
 const schema = z.object({
   name: z.string().min(1, 'Agent designation required'),
@@ -32,9 +33,13 @@ export default function LandingAuth({ onSubmit }: LandingAuthProps) {
       data-testid="screen-login"
     >
       {/* Background Poster */}
-      <div
-        className="absolute inset-0 z-0 bg-cover bg-center"
-        style={{ backgroundImage: "url('/poster.jpeg')" }}
+      <Image
+        src="/poster.avif"
+        alt="Poster Background"
+        fill
+        priority
+        sizes="100vw"
+        className="object-cover object-center z-0"
       />
       {/* Dark overlay for ambient contrast & readability */}
       <div className="absolute inset-0 z-0 bg-black/65 pointer-events-none" />

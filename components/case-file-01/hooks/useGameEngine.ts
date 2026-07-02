@@ -9,9 +9,8 @@ export interface Player {
 export interface Puzzle {
   type: string;
   pattern?: number[];
-  question?: string;
-  answer?: string;
   sequenceLength?: number;
+  targetWeight?: number;
 }
 
 export interface Anomaly {
@@ -68,72 +67,56 @@ const LEVELS: Level[] = [
       "27,13": {
         id: "a1",
         puzzles: [
-          { type: "lights_out", pattern: [1, 4, 7] },
-          { type: "lights_out", pattern: [1, 4, 7] },
-          { type: "question", question: "", answer: "" }
+          { type: 'seal_reveal' }
         ],
         solved: false
       },
       "15,17": {
         id: "a2",
         puzzles: [
-          { type: "lights_out", pattern: [1, 4, 7] },
-          { type: "question", question: "", answer: "" },
-          { type: "lights_out", pattern: [1, 4, 7] }
+          { type: 'tech_quiz' }
         ],
         solved: false
       },
       "25,24": {
         id: "a3",
         puzzles: [
-          { type: "question", question: "", answer: "" },
-          { type: "question", question: "", answer: "" },
-          { type: "sequence", sequenceLength: 3 }
+          { type: 'tomb_builder' }
         ],
         solved: false
       },
       "25,16": {
         id: "a4",
         puzzles: [
-          { type: "lights_out", pattern: [1, 4, 7] },
-          { type: "question", question: "", answer: "" },
-          { type: "sequence", sequenceLength: 3 }
+          { type: 'papyrus_restore' }
         ],
         solved: false
       },
       "17,21": {
         id: "a5",
         puzzles: [
-          { type: "question", question: "", answer: "" },
-          { type: "question", question: "", answer: "" },
-          { type: "question", question: "", answer: "" }
+          { type: 'pressure_plates' }
         ],
         solved: false
       },
       "17,1": {
         id: "a6",
         puzzles: [
-          { type: "question", question: "", answer: "" },
-          { type: "sequence", sequenceLength: 3 },
-          { type: "question", question: "", answer: "" }
+          { type: 'spell_making' }
         ],
         solved: false
       },
       "9,5": {
         id: "a7",
         puzzles: [
-          { type: "lights_out", pattern: [1, 4, 7] },
-          { type: "sequence", sequenceLength: 3 },
-          { type: "question", question: "", answer: "" }
+          { type: 'word_find' }
         ],
         solved: false
       },
       "11,21": {
         id: "a8",
         puzzles: [
-          { type: "lights_out", pattern: [1, 4, 7] },
-          { type: "lights_out", pattern: [1, 4, 7] },
-          { type: "lights_out", pattern: [1, 4, 7] }
+          { type: 'tic_tac_toe' }
         ],
         solved: false
       }
@@ -172,42 +155,59 @@ export function useGameEngine() {
   const [showStory, setShowStory] = useState<boolean>(false);
   const [gameWon, setGameWon] = useState<boolean>(false);
 
+  const solveAnomaly = useCallback((key: string) => {
+    setAnomalies(prev => {
+      const updated = {
+        ...prev,
+        [key]: { ...prev[key], solved: true }
+      };
+
+      const solvedIds = Object.keys(updated).filter(k => updated[k].solved);
+      
+      fetch('/api/progress', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ caseId: '01', key: 'solvedAnomalies', value: solvedIds })
+      }).catch(err => console.error('Failed to save Case 1 progress:', err));
+
+      const allNowSolved = Object.values(updated).every(a => a.solved);
+      if (allNowSolved) {
+        setGameWon(true);
+        import("@/components/case-progress").then((mod) => {
+          mod.markCaseCompleted("01");
+        }).catch(err => console.error("Failed to mark Case 1 completed:", err));
+      }
+
+      return updated;
+    });
+    setActiveAnomaly(null);
+  }, []);
+
+  // Load DB progress on mount
   useEffect(() => {
-    async function loadQuestionsAndProgress() {
+    async function loadProgress() {
       try {
-        const qRes = await fetch("/api/questions?caseId=01");
-        const qData = await qRes.json();
-        
         const pRes = await fetch("/api/progress?caseId=01");
         const pData = await pRes.json();
         const solvedAnomalies = pData.success && Array.isArray(pData.progress?.solvedAnomalies) 
           ? pData.progress.solvedAnomalies 
           : [];
 
-        if (qData.success && qData.questions) {
+        if (solvedAnomalies.length > 0) {
           setAnomalies(prev => {
             const updated = { ...prev };
-            
-            qData.questions.forEach((q: { anomalyId: string; puzzleIndex: number; question: string; answer: string }) => {
-              if (updated[q.anomalyId] && updated[q.anomalyId].puzzles[q.puzzleIndex]) {
-                updated[q.anomalyId] = {
-                  ...updated[q.anomalyId],
-                  puzzles: updated[q.anomalyId].puzzles.map((p, idx) => {
-                    if (idx === q.puzzleIndex) {
-                      return { ...p, question: q.question, answer: q.answer };
-                    }
-                    return p;
-                  })
-                };
-              }
-            });
-
             solvedAnomalies.forEach((anomalyKey: string) => {
               if (updated[anomalyKey]) {
                 updated[anomalyKey].solved = true;
               }
             });
-
+            const allNowSolved = Object.keys(updated).length > 0 && Object.values(updated).every(a => a.solved);
+            if (allNowSolved) {
+              setGameWon(true);
+              import("@/components/case-progress").then((mod) => {
+                mod.markCaseCompleted("01");
+              }).catch(err => console.error("Failed to mark Case 1 completed:", err));
+            }
             return updated;
           });
         }
@@ -221,10 +221,10 @@ export function useGameEngine() {
           }
         }
       } catch (err) {
-        console.error("Failed to load DB questions or progress for Case 1:", err);
+        console.error("Failed to load progress for Case 1:", err);
       }
     }
-    loadQuestionsAndProgress();
+    loadProgress();
   }, []);
 
   // Save player position and level index with a 1-second debounce
@@ -268,7 +268,13 @@ export function useGameEngine() {
         if (targetTile === 2) {
           const key = `${ny},${nx}`;
           if (anomalies[key] && !anomalies[key].solved) {
-            setActiveAnomaly({ key, ...anomalies[key] });
+            const anomaly = anomalies[key];
+            console.log("[Anomaly Step Case 1]", { key, anomaly });
+            if (anomaly.puzzles && anomaly.puzzles.length > 0) {
+              setActiveAnomaly({ key, ...anomaly });
+            } else {
+              solveAnomaly(key);
+            }
             return prev;
           }
         }
@@ -297,7 +303,7 @@ export function useGameEngine() {
       }
       return prev;
     });
-  }, [anomalies, allSolved, currentLevel, levelIndex]);
+  }, [anomalies, allSolved, currentLevel, levelIndex, solveAnomaly]);
 
   const turnPlayer = useCallback((dir: number) => {
     setPlayer(prev => ({
@@ -321,26 +327,6 @@ export function useGameEngine() {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [movePlayer, turnPlayer, activeAnomaly, showStory, gameWon]);
-
-  const solveAnomaly = (key: string) => {
-    setAnomalies(prev => {
-      const updated = {
-        ...prev,
-        [key]: { ...prev[key], solved: true }
-      };
-
-      const solvedIds = Object.keys(updated).filter(k => updated[k].solved);
-      
-      fetch('/api/progress', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ caseId: '01', key: 'solvedAnomalies', value: solvedIds })
-      }).catch(err => console.error('Failed to save Case 1 progress:', err));
-
-      return updated;
-    });
-    setActiveAnomaly(null);
-  };
 
   const closeAnomaly = () => setActiveAnomaly(null);
 

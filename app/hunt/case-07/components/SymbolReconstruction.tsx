@@ -14,10 +14,10 @@ const BINARY_GRID = [
 ]
 
 const PACKET_HEX = '45 00 00 2e 04 d2 00 00 40 11 ab cd 0a 00 00 01 0a 00 00 02 53 48 49 45 4c 44'
-const PACKET_ANSWER = 'SHIELD'
+const PACKET_ANSWER = ''
 
 const CIPHER_TEXT = 'ZXHHPZM'
-const CIPHER_ANSWER = 'REPLACE'
+const CIPHER_ANSWER = ''
 
 interface FragmentState {
   binary: boolean
@@ -251,6 +251,7 @@ function PacketPuzzle({ onSolved, onBack }: { onSolved: () => void; onBack: () =
   const [input, setInput] = useState('')
   const [wrong, setWrong] = useState(false)
   const [elapsed, setElapsed] = useState(0)
+  const [isVerifying, setIsVerifying] = useState(false)
   const startTimeRef = useRef<number | null>(null)
 
   useEffect(() => {
@@ -263,13 +264,33 @@ function PacketPuzzle({ onSolved, onBack }: { onSolved: () => void; onBack: () =
     return () => clearInterval(timer)
   }, [])
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (input.trim().toUpperCase() === PACKET_ANSWER) {
-      onSolved()
-    } else {
+    if (isVerifying) return
+    setIsVerifying(true)
+    try {
+      const res = await fetch("/api/questions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          caseId: "07",
+          puzzleKey: "packet-answer",
+          answer: input
+        })
+      })
+      const data = await res.json()
+      if (data.success && data.correct) {
+        onSolved()
+      } else {
+        setWrong(true)
+        setTimeout(() => setWrong(false), 800)
+      }
+    } catch (err) {
+      console.error(err)
       setWrong(true)
       setTimeout(() => setWrong(false), 800)
+    } finally {
+      setIsVerifying(false)
     }
   }
 
@@ -466,15 +487,35 @@ function ImageDecodePuzzle({ onSolved, onBack }: { onSolved: () => void; onBack:
 function CipherPuzzle({ onSolved, onBack, packetSolved }: { onSolved: () => void; onBack: () => void; packetSolved: boolean }) {
   const [input, setInput] = useState('')
   const [wrong, setWrong] = useState(false)
+  const [isVerifying, setIsVerifying] = useState(false)
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!packetSolved) return
-    if (input.trim().toUpperCase() === CIPHER_ANSWER) {
-      onSolved()
-    } else {
+    if (!packetSolved || isVerifying) return
+    setIsVerifying(true)
+    try {
+      const res = await fetch("/api/questions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          caseId: "07",
+          puzzleKey: "cipher-answer",
+          answer: input
+        })
+      })
+      const data = await res.json()
+      if (data.success && data.correct) {
+        onSolved()
+      } else {
+        setWrong(true)
+        setTimeout(() => setWrong(false), 600)
+      }
+    } catch (err) {
+      console.error(err)
       setWrong(true)
       setTimeout(() => setWrong(false), 600)
+    } finally {
+      setIsVerifying(false)
     }
   }
 

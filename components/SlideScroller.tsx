@@ -2,6 +2,7 @@
 
 import { useRef } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { useGSAP } from "@gsap/react";
@@ -24,7 +25,7 @@ interface Slide {
 
 export const storytellingSlides: Slide[] = [
   {
-    image: "/Scroll-Images/01.png",
+    image: "/Scroll-Images/01.avif",
     title: "IMAGE 1 — NULL ARCHIVE",
     lines: [
       { text: "THE LORE", type: "large" },
@@ -39,7 +40,7 @@ export const storytellingSlides: Slide[] = [
     ]
   },
   {
-    image: "/Scroll-Images/02.png",
+    image: "/Scroll-Images/02.avif",
     title: "IMAGE 2 — THE BREACH",
     lines: [
       { text: "The breach lasted exactly seventeen seconds.", type: "normal" },
@@ -54,7 +55,7 @@ export const storytellingSlides: Slide[] = [
     ]
   },
   {
-    image: "/Scroll-Images/03.png",
+    image: "/Scroll-Images/03.avif",
     title: "IMAGE 3 — OMEGA ANALYSTS",
     lines: [
       { text: "Conventional recovery teams have failed.", type: "normal" },
@@ -68,7 +69,7 @@ export const storytellingSlides: Slide[] = [
     ]
   },
   {
-    image: "/Scroll-Images/04.png",
+    image: "/Scroll-Images/04.avif",
     title: "IMAGE 4 — CORRUPTED FILES",
     lines: [
       { text: "The archive contains dozens of anomaly reports.", type: "normal" },
@@ -82,7 +83,7 @@ export const storytellingSlides: Slide[] = [
     ]
   },
   {
-    image: "/Scroll-Images/05.png",
+    image: "/Scroll-Images/05.avif",
     title: "IMAGE 5 — TIMELINE INSTABILITY",
     lines: [
       { text: "Initial analysis revealed a disturbing pattern.", type: "normal" },
@@ -95,7 +96,7 @@ export const storytellingSlides: Slide[] = [
     ]
   },
   {
-    image: "/Scroll-Images/06.png",
+    image: "/Scroll-Images/06.avif",
     title: "IMAGE 6 — FIRST GLIMPSE OF THE NULL EVENT",
     lines: [
       { text: "Several recovered records reference a single term.", type: "normal" },
@@ -110,7 +111,7 @@ export const storytellingSlides: Slide[] = [
     ]
   },
   {
-    image: "/Scroll-Images/07.png",
+    image: "/Scroll-Images/07.avif",
     title: "IMAGE 7 — THE TRUTH IS HIDDEN",
     lines: [
       { text: "Every recovered case file restores part of the archive.", type: "normal" },
@@ -121,7 +122,7 @@ export const storytellingSlides: Slide[] = [
     ]
   },
   {
-    image: "/Scroll-Images/08.png",
+    image: "/Scroll-Images/08.avif",
     title: "IMAGE 8 — START OF THE HUNT",
     lines: [
       { text: "The archive is unstable.", type: "normal" },
@@ -514,10 +515,13 @@ export default function SlideScroller() {
       {/* Image Layer Stack */}
       <div className="absolute inset-0 w-full h-full z-0 bg-[#020204]">
         {storytellingSlides.map((slide, i) => (
-          <img
+          <Image
             key={i}
             src={encodeURI(slide.image)}
             alt={slide.title}
+            fill
+            sizes="100vw"
+            priority={i === 0}
             className={`slide-img slide-img-${i} absolute inset-0 w-full h-full object-cover pointer-events-none select-none scale-105`}
             style={{ opacity: i === 0 ? 1 : 0 }}
           />

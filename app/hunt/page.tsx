@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { isCaseCompleted } from "@/components/case-progress";
 import { Lock, X, Menu } from "lucide-react";
 import gsap from "gsap";
@@ -98,31 +99,7 @@ const CASE_COLORS = [
   },
 ];
 
-function getPermutedIndices(userId: string | null): number[] {
-  const base = [0, 1, 2, 3, 4, 5, 6, 7];
-  if (!userId) return base;
 
-  let seed = 0;
-  for (let i = 0; i < userId.length; i++) {
-    seed = (seed << 5) - seed + userId.charCodeAt(i);
-    seed |= 0;
-  }
-
-  const random = () => {
-    const x = Math.sin(seed++) * 10000;
-    return x - Math.floor(x);
-  };
-
-  const shuffled = [...base];
-  for (let i = shuffled.length - 1; i > 0; i--) {
-    const j = Math.floor(random() * (i + 1));
-    const temp = shuffled[i];
-    shuffled[i] = shuffled[j];
-    shuffled[j] = temp;
-  }
-
-  return shuffled;
-}
 
 export default function HuntPage() {
   const [completedList, setCompletedList] = useState<Record<string, boolean>>({});
@@ -142,12 +119,6 @@ export default function HuntPage() {
   const flyerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    // Check if session is active in this tab session
-    if (!sessionStorage.getItem("isLoggedIn")) {
-      window.location.href = '/';
-      return;
-    }
-
     // 1. Initial client-side check from cookies
     const list: Record<string, boolean> = {};
     const caseFilesNums = Array.from({ length: 9 }, (_, i) => String(i + 1).padStart(2, "0"));
@@ -162,12 +133,6 @@ export default function HuntPage() {
         const res = await fetch("/api/cases/progress");
         const data = await res.json();
         
-        // Redirect to login if not authenticated
-        if (data.success && !data.authenticated) {
-          window.location.href = '/';
-          return;
-        }
-
         if (data.success && data.userId) {
           setUserId(data.userId);
         }
@@ -193,7 +158,8 @@ export default function HuntPage() {
             if (apiCompleted[num]) {
               if (!list[num]) {
                 list[num] = true;
-                document.cookie = `case-${num}-completed=true; path=/; max-age=31536000; SameSite=Lax`;
+                const isSecure = typeof window !== "undefined" && window.location.protocol === "https:";
+                document.cookie = `case-${num}-completed=true; path=/; max-age=31536000; SameSite=Lax${isSecure ? '; Secure' : ''}`;
                 changed = true;
               }
             } else {
@@ -358,10 +324,15 @@ export default function HuntPage() {
   return (
     <main 
       className="flex flex-col items-center min-h-screen w-full text-white pt-16 md:pt-24 px-6 pb-24 relative overflow-hidden bg-cover bg-center bg-no-repeat"
-      style={{
-        backgroundImage: "url('/Hunt/Background-Image.png')",
-      }}
     >
+      <Image
+        src="/Hunt/Background-Image.avif"
+        alt="Background"
+        fill
+        priority
+        sizes="100vw"
+        className="object-cover pointer-events-none -z-10"
+      />
       {/* Premium dark cinematic overlays */}
       <div className="absolute inset-0 bg-black/50 pointer-events-none z-0" />
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_0%,rgba(0,0,0,0.65)_100%)] pointer-events-none z-0" />
@@ -369,26 +340,26 @@ export default function HuntPage() {
       {/* Floating HUD Inventory Hamburger Trigger */}
       <button 
         onClick={() => setIsInventoryOpen(!isInventoryOpen)}
-        className="fixed top-4 left-4 sm:top-6 sm:left-6 z-35 flex items-center gap-3 px-4.5 py-2 bg-gradient-to-r from-zinc-950/90 via-zinc-900/90 to-zinc-950/90 border border-zinc-800/60 hover:border-cyan-400/80 text-zinc-300 hover:text-cyan-300 rounded-xl cursor-pointer transition-all duration-300 shadow-[0_4px_24px_rgba(0,0,0,0.5),_inset_0_1px_1px_rgba(255,255,255,0.05)] hover:shadow-[0_0_20px_rgba(6,182,212,0.3)] hover:-translate-y-0.5 backdrop-blur-md font-mono text-[10px] sm:text-[11px] tracking-[0.2em] font-extrabold select-none group active:scale-95"
+        className="fixed top-4 left-4 sm:top-6 sm:left-6 z-35 flex items-center gap-3 px-4.5 py-2 bg-gradient-to-r from-zinc-950/90 via-zinc-900/90 to-zinc-950/90 border border-zinc-800/60 hover:border-amber-500/80 text-zinc-300 hover:text-amber-400 rounded-xl cursor-pointer transition-all duration-300 shadow-[0_4px_24px_rgba(0,0,0,0.5),_inset_0_1px_1px_rgba(255,255,255,0.05)] hover:shadow-[0_0_20px_rgba(245,158,11,0.3)] hover:-translate-y-0.5 backdrop-blur-md font-mono text-[10px] sm:text-[11px] tracking-[0.2em] font-extrabold select-none group active:scale-95"
       >
         <span className="relative flex items-center justify-center w-4 h-4">
           {/* Pulsing indicator when there are solved items */}
           {Object.keys(completedList).filter(k => parseInt(k, 10) <= 8 && completedList[k]).length > 0 && (
             <span className="absolute -top-0.5 -right-0.5 flex h-1.5 w-1.5">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-cyan-500"></span>
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-amber-500"></span>
             </span>
           )}
           <span className="transition-transform duration-300 group-hover:rotate-180">
-            {isInventoryOpen ? <X size={15} className="text-cyan-400" /> : <Menu size={15} className="text-zinc-400 group-hover:text-cyan-400" />}
+            {isInventoryOpen ? <X size={15} className="text-amber-400" /> : <Menu size={15} className="text-zinc-400 group-hover:text-amber-400" />}
           </span>
         </span>
         
-        <span className="bg-gradient-to-r from-zinc-100 to-zinc-300 bg-clip-text text-transparent group-hover:from-cyan-300 group-hover:to-teal-300 transition-all duration-300">
+        <span className="bg-gradient-to-r from-zinc-100 to-zinc-300 bg-clip-text text-transparent group-hover:from-amber-300 group-hover:to-yellow-400 transition-all duration-300">
           INVENTORY
         </span>
         
-        <span className="font-mono text-[10px] sm:text-[11px] font-black text-cyan-400 bg-cyan-950/40 px-2 py-0.5 border border-cyan-500/30 rounded-lg shadow-[inset_0_0_8px_rgba(6,182,212,0.25)] group-hover:border-cyan-400/60 transition-all duration-300">
+        <span className="font-mono text-[10px] sm:text-[11px] font-black text-amber-400 bg-amber-950/40 px-2 py-0.5 border border-amber-500/30 rounded-lg shadow-[inset_0_0_8px_rgba(245,158,11,0.25)] group-hover:border-amber-400/60 transition-all duration-300">
           {Object.keys(completedList).filter(k => parseInt(k, 10) <= 8 && completedList[k]).length}/8
         </span>
       </button>
@@ -397,13 +368,13 @@ export default function HuntPage() {
       {isInventoryOpen && (
         <section 
           id="inventory-section"
-          className="fixed top-16 left-4 sm:top-20 sm:left-6 z-30 bg-zinc-950/90 border border-zinc-800/80 rounded-2xl px-4 py-3 backdrop-blur-lg shadow-[0_12px_40px_rgba(0,0,0,0.85)] flex flex-col gap-2.5 w-[calc(100%-2rem)] sm:w-auto max-w-sm sm:max-w-md transition-all duration-300 animate-[fadeIn_0.3s_ease-out] origin-top-left"
+          className="fixed top-16 left-4 sm:top-20 sm:left-6 z-30 bg-zinc-950/95 border border-zinc-800/80 hover:border-amber-500/40 rounded-2xl px-4 py-3 backdrop-blur-lg shadow-[0_12px_40px_rgba(0,0,0,0.85),_0_0_30px_rgba(245,158,11,0.05)] flex flex-col gap-2.5 w-[calc(100%-2rem)] sm:w-auto max-w-sm sm:max-w-md transition-all duration-300 animate-[fadeIn_0.3s_ease-out] origin-top-left"
         >
-          <div className="absolute inset-0 bg-gradient-to-b from-transparent to-cyan-500/[0.02] pointer-events-none rounded-2xl" />
+          <div className="absolute inset-0 bg-gradient-to-b from-transparent to-amber-500/[0.03] pointer-events-none rounded-2xl" />
           
           {/* Title and stats bar */}
           <div className="flex items-center justify-between w-full border-b border-zinc-800/50 pb-1.5 text-[9px] tracking-widest font-mono text-zinc-400">
-            <span className="uppercase tracking-[0.2em] text-zinc-300 font-bold">
+            <span className="uppercase tracking-[0.2em] bg-gradient-to-r from-amber-200 to-yellow-400 bg-clip-text text-transparent font-bold">
               ARCHIVE RECORDS
             </span>
           </div>
@@ -421,15 +392,17 @@ export default function HuntPage() {
                     key={num}
                     id={`inventory-slot-${num}`}
                     onClick={() => setSelectedSymbolCase(num)}
-                    className="relative w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 flex items-center justify-center border border-cyan-500/20 bg-cyan-950/10 hover:bg-cyan-950/20 rounded-xl transition-all duration-300 hover:border-cyan-400/50 hover:shadow-[0_0_15px_rgba(6,182,212,0.2)] hover:-translate-y-0.5 cursor-pointer group select-none flex-shrink-0"
+                    className="relative w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 flex items-center justify-center border border-amber-500/20 bg-amber-950/10 hover:bg-amber-950/20 rounded-xl transition-all duration-300 hover:border-amber-400/50 hover:shadow-[0_0_15px_rgba(245,158,11,0.25)] hover:-translate-y-0.5 cursor-pointer group select-none flex-shrink-0"
                   >
-                    <img
-                      src={`/Symbols/cf${i + 1}.png`}
+                    <Image
+                      src={`/Symbols/cf${i + 1}.avif`}
                       alt={`Case ${num} Symbol`}
-                      className="w-5 h-5 sm:w-7 sm:h-7 md:w-9 md:h-9 object-contain filter drop-shadow-[0_0_6px_rgba(6,182,212,0.4)]"
+                      width={36}
+                      height={36}
+                      className="w-5 h-5 sm:w-7 sm:h-7 md:w-9 md:h-9 object-contain filter drop-shadow-[0_0_6px_rgba(245,158,11,0.45)]"
                     />
                     {/* Subtle hover tooltip */}
-                    <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 px-2 py-0.5 bg-zinc-950 border border-zinc-800 text-[8px] tracking-wider text-cyan-400 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap font-mono z-40">
+                    <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 px-2 py-0.5 bg-zinc-950 border border-zinc-800 text-[8px] tracking-wider text-amber-400 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap font-mono z-40">
                       CF-{num}
                     </div>
                   </div>
@@ -450,42 +423,16 @@ export default function HuntPage() {
               );
             })}
           </div>
-
-          {/* Detailed text list showing statuses of cases 1-8 */}
-          <div className="flex flex-col gap-1.5 border-t border-zinc-800/50 pt-2.5 font-mono text-[9px] w-full max-h-[160px] overflow-y-auto pr-1">
-            {Array.from({ length: 8 }, (_, i) => {
-              const num = String(i + 1).padStart(2, "0");
-              const isCompleted = completedList[num];
-              const caseTitle = SYMBOL_DETAILS[num]?.title || `Case File ${num}`;
-              return (
-                <div key={num} className="flex items-center justify-between text-zinc-400 w-full gap-4">
-                  <span className="truncate max-w-[170px] text-zinc-300 font-medium">
-                    CF-{num}: {caseTitle}
-                  </span>
-                  {isCompleted ? (
-                    <span className="text-emerald-400 font-bold uppercase tracking-wider flex-shrink-0">
-                      SECURED
-                    </span>
-                  ) : (
-                    <span className="text-zinc-600 uppercase tracking-wider flex-shrink-0">
-                      LOCKED
-                    </span>
-                  )}
-                </div>
-              );
-            })}
-          </div>
         </section>
       )}
 
-      <h1 className="relative z-10 font-serif text-2xl md:text-4xl tracking-[0.2em] text-zinc-100 uppercase select-none mb-12 md:mb-16">
+      <h1 className="relative z-10 font-serif text-4xl sm:text-5xl md:text-6xl tracking-[0.2em] bg-gradient-to-r from-amber-200 via-yellow-400 to-amber-500 bg-clip-text text-transparent uppercase select-none mb-12 md:mb-16">
         Choose Case File
       </h1>
 
       <div className="relative z-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 max-w-5xl w-full">
         {(() => {
-          const permutedIndices = getPermutedIndices(userId);
-          const displayIndices = [...permutedIndices, 8];
+          const displayIndices = [0, 1, 2, 3, 4, 5, 6, 7, 8];
 
           return displayIndices.map((origIndex) => {
             const num = String(origIndex + 1).padStart(2, "0");
@@ -498,14 +445,23 @@ export default function HuntPage() {
                   key={origIndex}
                   className="flex flex-col items-center justify-center h-36 md:h-44 bg-zinc-950/20 border border-emerald-950/40 rounded-xl p-6 relative overflow-hidden select-none cursor-not-allowed group"
                 >
+                  {["01", "02", "03", "04", "05", "06", "07", "08", "09"].includes(num) && (
+                    <>
+                      <Image
+                        src={`/Cards-hunt/case${num}.avif`}
+                        alt={`Case File ${num}`}
+                        fill
+                        priority
+                        sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                        className="object-cover scale-[1.2] z-0"
+                      />
+                      <div className="absolute inset-0 bg-black/60 z-0" />
+                    </>
+                  )}
                   {/* Muted green matrix overlay */}
-                  <div className="absolute inset-0 bg-gradient-to-b from-transparent to-emerald-500/[0.01]" />
+                  <div className="absolute inset-0 bg-gradient-to-b from-transparent to-emerald-500/[0.01] z-10" />
                   
-                  <span className="font-mono text-xs md:text-sm tracking-[0.25em] text-emerald-500/25 uppercase line-through transition-colors duration-300">
-                    {fileName}
-                  </span>
-                  
-                  <div className="absolute bottom-3 right-4 font-mono text-[9px] tracking-[0.2em] text-emerald-500/60 bg-emerald-950/20 px-2 py-0.5 border border-emerald-500/20 rounded">
+                  <div className="absolute bottom-3 right-4 font-mono text-[9px] tracking-[0.2em] text-emerald-500/60 bg-emerald-950/20 px-2 py-0.5 border border-emerald-500/20 rounded z-20">
                     SECURED
                   </div>
                 </div>
@@ -522,18 +478,23 @@ export default function HuntPage() {
                   key={origIndex}
                   className="flex flex-col items-center justify-center h-36 md:h-44 bg-zinc-950/40 border border-red-950/30 rounded-xl p-6 relative overflow-hidden select-none cursor-not-allowed group"
                 >
+                  <Image
+                    src="/Cards-hunt/case09.avif"
+                    alt="Case File 09"
+                    fill
+                    priority
+                    sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                    className="object-cover scale-[1.2] opacity-35 filter grayscale z-0"
+                  />
+                  <div className="absolute inset-0 bg-black/60 z-0" />
                   {/* Subtle red overlay */}
-                  <div className="absolute inset-0 bg-gradient-to-b from-transparent to-red-500/[0.01]" />
+                  <div className="absolute inset-0 bg-gradient-to-b from-transparent to-red-500/[0.01] z-10" />
                   
-                  <span className="font-mono text-xs md:text-sm tracking-[0.25em] text-red-500/20 uppercase transition-colors duration-300">
-                    {fileName}
-                  </span>
-
-                  <div className="absolute top-4 left-4 flex items-center justify-center text-red-500/40">
+                  <div className="absolute top-4 left-4 flex items-center justify-center text-red-500/40 z-20">
                     <Lock size={14} className="animate-pulse" />
                   </div>
                   
-                  <div className="absolute bottom-3 right-4 font-mono text-[9px] tracking-[0.2em] text-red-500/60 bg-red-950/20 px-2 py-0.5 border border-red-500/20 rounded">
+                  <div className="absolute bottom-3 right-4 font-mono text-[9px] tracking-[0.2em] text-red-500/60 bg-red-950/20 px-2 py-0.5 border border-red-500/20 rounded z-20">
                     LOCKED
                   </div>
                 </div>
@@ -548,12 +509,21 @@ export default function HuntPage() {
                 href={`/hunt/case-${num}`}
                 className={`flex items-center justify-center h-36 md:h-44 bg-zinc-950/60 border border-zinc-800/80 rounded-xl p-6 cursor-pointer transition-all duration-300 ${colors.hoverBorder} ${colors.hoverShadow} hover:-translate-y-1 group relative overflow-hidden`}
               >
+                {["01", "02", "03", "04", "05", "06", "07", "08", "09"].includes(num) && (
+                  <>
+                    <Image
+                      src={`/Cards-hunt/case${num}.avif`}
+                      alt={`Case File ${num}`}
+                      fill
+                      priority
+                      sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                      className="object-cover scale-[1.2] transition-transform duration-300 group-hover:scale-[1.25] z-0"
+                    />
+                    <div className="absolute inset-0 bg-black/50 group-hover:bg-black/35 transition-colors duration-300 z-0" />
+                  </>
+                )}
                 {/* Subtle glow border effect on hover */}
-                <div className={`absolute inset-0 bg-gradient-to-b from-transparent ${colors.bgGradient} opacity-0 group-hover:opacity-100 transition-opacity duration-500`} />
-                
-                <span className={`font-mono text-xs md:text-sm tracking-[0.25em] text-zinc-400 ${colors.textColor} transition-colors uppercase duration-300`}>
-                  {fileName}
-                </span>
+                <div className={`absolute inset-0 bg-gradient-to-b from-transparent ${colors.bgGradient} opacity-0 group-hover:opacity-100 transition-opacity duration-500 z-10`} />
               </Link>
             );
           });
@@ -564,10 +534,15 @@ export default function HuntPage() {
       {showUnlockOverlay && solvedCaseForAnim && (
         <div 
           className="fixed inset-0 z-45 flex flex-col items-center justify-center bg-cover bg-center bg-no-repeat overflow-hidden select-none animate-[fadeIn_0.5s_ease-out]"
-          style={{
-            backgroundImage: "url('/Hunt/Background-Image.png')",
-          }}
         >
+          <Image
+            src="/Hunt/Background-Image.avif"
+            alt="Background"
+            fill
+            priority
+            sizes="100vw"
+            className="object-cover pointer-events-none -z-10"
+          />
           {/* Premium dark cinematic overlays */}
           <div className="absolute inset-0 bg-black/55 pointer-events-none z-0" />
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_0%,rgba(0,0,0,0.7)_100%)] pointer-events-none z-0" />
@@ -601,9 +576,11 @@ export default function HuntPage() {
             {/* Central Symbol */}
             <div className="relative w-44 h-44 md:w-52 md:h-52 z-10 flex items-center justify-center bg-cyan-950/10 border border-cyan-500/20 rounded-2xl backdrop-blur-sm p-6 shadow-[0_0_50px_rgba(6,182,212,0.1)] center-symbol-container overflow-hidden">
               <div className="absolute inset-0 bg-gradient-to-b from-transparent to-cyan-500/[0.05]" />
-              <img
-                src={`/Symbols/cf${parseInt(solvedCaseForAnim, 10)}.png`}
+              <Image
+                src={`/Symbols/cf${parseInt(solvedCaseForAnim, 10)}.avif`}
                 alt="Recovered Symbol"
+                width={200}
+                height={200}
                 className="w-full h-full object-contain filter drop-shadow-[0_0_15px_rgba(6,182,212,0.6)] center-symbol-img"
               />
             </div>
@@ -648,9 +625,11 @@ export default function HuntPage() {
             <div className="flex flex-col items-center text-center">
               <div className="w-36 h-36 flex items-center justify-center bg-cyan-950/10 border border-cyan-500/10 rounded-xl p-4 mb-6 shadow-inner relative">
                 <div className="absolute inset-0 bg-gradient-to-b from-transparent to-cyan-500/[0.04]" />
-                <img
-                  src={`/Symbols/cf${parseInt(selectedSymbolCase, 10)}.png`}
+                <Image
+                  src={`/Symbols/cf${parseInt(selectedSymbolCase, 10)}.avif`}
                   alt={`Case ${selectedSymbolCase} Symbol`}
+                  width={144}
+                  height={144}
                   className="w-full h-full object-contain filter drop-shadow-[0_0_10px_rgba(6,182,212,0.4)]"
                 />
               </div>
@@ -687,9 +666,11 @@ export default function HuntPage() {
             top: 0,
           }}
         >
-          <img
-            src={`/Symbols/cf${parseInt(solvedCaseForAnim, 10)}.png`}
+          <Image
+            src={`/Symbols/cf${parseInt(solvedCaseForAnim, 10)}.avif`}
             alt="Flying Symbol"
+            width={180}
+            height={180}
             className="w-full h-full object-contain filter drop-shadow-[0_0_10px_rgba(6,182,212,0.5)]"
           />
         </div>

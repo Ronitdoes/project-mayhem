@@ -2,7 +2,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { cookies } from 'next/headers'
 import { isDbAvailable, db } from '@/db'
-import { users, timelineProgress, puzzleEvents, fragments, leaderboard } from '@/db/schema'
+import { users, timelineProgress, puzzleEvents, fragments } from '@/db/schema'
 import { eq, and } from 'drizzle-orm'
 import { timelines } from './timelines'
 import crypto from 'crypto'
@@ -31,36 +31,38 @@ const DEFAULT_DEMO_STATE: SessionData = {
   wrongAttempts: {},
 }
 
-const SESSION_SECRET = process.env.SESSION_SECRET || 'a-very-secure-random-secret-for-cryptic-hunt-default'
+import { signCookie, verifyCookie } from '@/lib/auth-session'
 
-function signCookie(value: string): string {
-  const hmac = crypto.createHmac('sha256', SESSION_SECRET)
-  hmac.update(value)
-  const signature = hmac.digest('base64url')
-  return `${value}.${signature}`
+export function hashPassword(password: string): string {
+  const salt = crypto.randomBytes(16).toString('hex')
+  const hash = crypto.pbkdf2Sync(password, salt, 100000, 64, 'sha512').toString('hex')
+  return `${salt}:${hash}`
 }
 
-function verifyCookie(cookieValue: string): string | null {
-  const parts = cookieValue.split('.')
-  if (parts.length !== 2) return null
-  const [value, signature] = parts
-  const expectedSignature = crypto.createHmac('sha256', SESSION_SECRET).update(value).digest('base64url')
-  
-  const sigBuffer = Buffer.from(signature)
-  const expectedBuffer = Buffer.from(expectedSignature)
-  if (sigBuffer.length !== expectedBuffer.length) {
-    return null
+export function verifyPassword(password: string, storedHash: string): boolean {
+  if (!storedHash) return false
+
+  // Legacy plaintext password compatibility
+  if (!storedHash.includes(':')) {
+    return password === storedHash
   }
-  if (crypto.timingSafeEqual(sigBuffer, expectedBuffer)) {
-    return value
+
+  const [salt, originalHash] = storedHash.split(':')
+  if (!salt || !originalHash) return false
+
+  const hashToVerify = crypto.pbkdf2Sync(password, salt, 100000, 64, 'sha512').toString('hex')
+  try {
+    return crypto.timingSafeEqual(Buffer.from(originalHash, 'hex'), Buffer.from(hashToVerify, 'hex'))
+  } catch {
+    return false
   }
-  return null
 }
+
 
 export async function getSession(): Promise<SessionData | null> {
   const cookieStore = await cookies()
   const rawSessionId = cookieStore.get('auth_session')?.value
-  const sessionId = rawSessionId ? verifyCookie(rawSessionId) : null
+  const sessionId = rawSessionId ? await verifyCookie(rawSessionId) : null
   
   // Require auth cookie — do not auto-authenticate
   if (!sessionId) {
@@ -70,7 +72,7 @@ export async function getSession(): Promise<SessionData | null> {
   if (!isDbAvailable) {
     // Demo Mode: read state from cookie, or create a default session state
     const demoStateRawSigned = cookieStore.get('aetherion_demo_state')?.value
-    const demoStateRaw = demoStateRawSigned ? verifyCookie(demoStateRawSigned) : null
+    const demoStateRaw = demoStateRawSigned ? await verifyCookie(demoStateRawSigned) : null
     if (demoStateRaw) {
       try {
         const parsed = JSON.parse(demoStateRaw) as SessionData
@@ -84,7 +86,7 @@ export async function getSession(): Promise<SessionData | null> {
 
   // Live Database Mode: query Drizzle ORM
   try {
-    const userRows = await db.select().from(users).where(eq(users.id, sessionId))
+    const userRows = await db.select().from(users).where(eq(users.id, sessionId)).limit(1)
     let user = userRows[0]
     
     if (!user) {
@@ -102,27 +104,16 @@ export async function getSession(): Promise<SessionData | null> {
           createdAt: new Date(),
         }
 
-        // Initialize leaderboard entry if missing
-        const lbRows = await db.select().from(leaderboard).where(eq(leaderboard.userId, sessionId))
-        if (lbRows.length === 0) {
-          await db.insert(leaderboard).values({
-            userId: sessionId,
-            fragmentCount: 0,
-            hintCount: 0,
-          })
-        }
-
         // Initialize progress entries if missing
         const progressList = await db.select().from(timelineProgress).where(eq(timelineProgress.userId, sessionId))
         if (progressList.length === 0) {
-          for (const t of timelines) {
-            await db.insert(timelineProgress).values({
-              userId: sessionId,
-              timelineId: t.id,
-              status: t.id === 'operation-deadlight' ? 'active' : 'locked',
-              fragmentRecovered: false,
-            })
-          }
+          const newEntries = timelines.map(t => ({
+            userId: sessionId,
+            timelineId: t.id,
+            status: (t.id === 'operation-deadlight' ? 'active' : 'locked') as 'active' | 'locked',
+            fragmentRecovered: false,
+          }))
+          await db.insert(timelineProgress).values(newEntries)
         }
       } else {
         return null
@@ -130,23 +121,18 @@ export async function getSession(): Promise<SessionData | null> {
     }
 
     // Get recovered fragments
-    const recoveredRows = await db.select().from(fragments).where(eq(fragments.userId, sessionId))
+    const recoveredRows = await db.select({ timelineId: fragments.timelineId }).from(fragments).where(eq(fragments.userId, sessionId))
     const recovered = recoveredRows.map((r: any) => r.timelineId)
 
     // Get wrong attempts to calculate integrity
-    const events = await db.select().from(puzzleEvents).where(eq(puzzleEvents.userId, sessionId))
+    const events = await db.select({ timelineId: puzzleEvents.timelineId }).from(puzzleEvents).where(and(eq(puzzleEvents.userId, sessionId), eq(puzzleEvents.outcome, 'wrong')))
     
     const wrongAttempts: Record<string, number> = {}
     events.forEach((e: any) => {
-      if (e.outcome === 'wrong') {
-        wrongAttempts[e.timelineId] = (wrongAttempts[e.timelineId] || 0) + 1
-      }
+      wrongAttempts[e.timelineId] = (wrongAttempts[e.timelineId] || 0) + 1
     })
 
-    // Get leaderboard entry for hints
-    const lbEntryRows = await db.select().from(leaderboard).where(eq(leaderboard.userId, sessionId))
-    const lbEntry = lbEntryRows[0]
-    const hints = lbEntry?.hintCount ?? 0
+    const hints = 0
 
     // Integrity score: starts at 100, drops by 10 per wrong answer (min 0)
     let totalWrong = 0
@@ -160,7 +146,6 @@ export async function getSession(): Promise<SessionData | null> {
       name: user.name,
       email: user.email,
       teamName: user.teamName ?? undefined,
-      password: user.password ?? undefined,
       integrity,
       recovered,
       hints,
@@ -193,49 +178,43 @@ export async function setSession(name: string, email: string, teamName?: string,
       teamName,
       password,
     }
-    cookieStore.set('auth_session', signCookie(newUserId), cookieOptions)
-    cookieStore.set('aetherion_demo_state', signCookie(JSON.stringify(newSessionState)), cookieOptions)
+    cookieStore.set('auth_session', await signCookie(newUserId), cookieOptions)
+    cookieStore.set('aetherion_demo_state', await signCookie(JSON.stringify(newSessionState)), cookieOptions)
     return newUserId
   }
 
   // Live Database Mode
   try {
     // Check if user exists by email
-    const userRows = await db.select().from(users).where(eq(users.email, email))
+    const userRows = await db.select().from(users).where(eq(users.email, email)).limit(1)
     let user = userRows[0]
     
     if (!user) {
       // Create user
+      const hashedPassword = password ? (password.includes(':') ? password : hashPassword(password)) : null
       await db.insert(users).values({
         id: newUserId,
         name,
         email,
         teamName: teamName || null,
-        password: password || null,
+        password: hashedPassword,
       })
-      user = { id: newUserId, name, email, teamName: teamName || null, password: password || null, createdAt: new Date() }
+      user = { id: newUserId, name, email, teamName: teamName || null, password: hashedPassword, createdAt: new Date() }
     } else {
-      // Verify password if user exists
-      if (user.password && password && user.password !== password) {
-        throw new Error('Incorrect password for this email address.')
+      // Verify password if user exists and a new plaintext password is supplied
+      if (user.password && password && password !== user.password) {
+        if (!verifyPassword(password, user.password)) {
+          throw new Error('Incorrect password for this email address.')
+        }
       }
       // Update user info if they log in again with new info
       const updates: Record<string, any> = { name }
       if (teamName) updates.teamName = teamName
-      if (password) updates.password = password
+      if (password && password !== user.password) {
+        updates.password = password.includes(':') ? password : hashPassword(password)
+      }
       await db.update(users).set(updates).where(eq(users.id, user.id))
       user = { ...user, ...updates }
-    }
-
-    // Initialize leaderboard entry if missing
-    const lbRows = await db.select().from(leaderboard).where(eq(leaderboard.userId, user.id))
-    const lb = lbRows[0]
-    if (!lb) {
-      await db.insert(leaderboard).values({
-        userId: user.id,
-        fragmentCount: 0,
-        hintCount: 0,
-      })
     }
 
     // Initialize timeline progress for all 9 timelines
@@ -243,17 +222,16 @@ export async function setSession(name: string, email: string, teamName?: string,
     const missingTimelines = timelines.filter(t => !currentProgress.some((p: any) => p.timelineId === t.id))
 
     if (missingTimelines.length > 0) {
-      for (const t of missingTimelines) {
-        await db.insert(timelineProgress).values({
-          userId: user.id,
-          timelineId: t.id,
-          status: t.id === 'operation-deadlight' ? 'active' : 'locked',
-          fragmentRecovered: false,
-        })
-      }
+      const newEntries = missingTimelines.map(t => ({
+        userId: user.id,
+        timelineId: t.id,
+        status: (t.id === 'operation-deadlight' ? 'active' : 'locked') as 'active' | 'locked',
+        fragmentRecovered: false,
+      }))
+      await db.insert(timelineProgress).values(newEntries)
     }
 
-    cookieStore.set('auth_session', signCookie(user.id), cookieOptions)
+    cookieStore.set('auth_session', await signCookie(user.id), cookieOptions)
     return user.id
   } catch (error: any) {
     console.error('Database write error in setSession:', error)
@@ -261,7 +239,7 @@ export async function setSession(name: string, email: string, teamName?: string,
       throw error
     }
     // Fall back to cookie session if DB write fails
-    cookieStore.set('auth_session', signCookie(newUserId), cookieOptions)
+    cookieStore.set('auth_session', await signCookie(newUserId), cookieOptions)
     return newUserId
   }
 }
@@ -275,7 +253,7 @@ export async function saveDemoState(state: SessionData) {
     secure: isProd, 
     sameSite: 'lax' as const 
   }
-  cookieStore.set('aetherion_demo_state', signCookie(JSON.stringify(state)), cookieOptions)
+  cookieStore.set('aetherion_demo_state', await signCookie(JSON.stringify(state)), cookieOptions)
 }
 
 export async function clearSession() {

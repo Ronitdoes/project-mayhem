@@ -5,8 +5,29 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1782389506022,
-      "tag": "0000_curly_edwin_jarvis",
+      "when": 1782968907547,
+      "tag": "0000_full_schema_init",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1782969742281,
+      "tag": "0001_empty_banshee",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1782969926253,
+      "tag": "0002_windy_talisman",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1782993457943,
+      "tag": "0003_skinny_wiccan",
       "breakpoints": true
     }
   ]

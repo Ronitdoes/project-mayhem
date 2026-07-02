@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { isDbAvailable, db } from '@/db'
 import { emailTransmissions } from '@/db/schema'
-import { setSession } from '@/app/hunt/case-07/lib/session'
-import { sendClassifiedEmail } from '@/app/hunt/case-07/lib/brevo'
+import { setSession, getSession } from '@/app/hunt/case-07/lib/session'
+import { queueMailDeliveryJob } from '@/app/hunt/case-07/lib/brevo'
 import { mockTransmissions, MockTransmission } from '@/app/hunt/case-07/lib/mockDb'
 import { DeadlightTransmissionEmail } from '@/app/hunt/case-07/emails/case-07'
 import { render } from '@react-email/components'
@@ -11,6 +11,7 @@ import React from 'react'
 import { eq, and, gte } from 'drizzle-orm'
 import crypto from 'crypto'
 import { getClientIp, isRateLimited, verifyCsrf } from '@/app/hunt/case-07/lib/rateLimit'
+
 
 const registerSchema = z.object({
   name: z.string().trim().min(1, 'Name is required.'),
@@ -62,37 +63,53 @@ export async function POST(request: NextRequest) {
     const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000)
 
     // Rate Limiting Check (Max 3 sends per email per hour)
+    let isRateLimitedByDb = false
     if (isDbAvailable) {
-      const recentSends = await db
-        .select()
-        .from(emailTransmissions)
-        .where(
-          and(
-            eq(emailTransmissions.email, email),
-            gte(emailTransmissions.sentAt, oneHourAgo)
+      try {
+        const recentSends = await db
+          .select()
+          .from(emailTransmissions)
+          .where(
+            and(
+              eq(emailTransmissions.email, email),
+              gte(emailTransmissions.sentAt, oneHourAgo)
+            )
           )
+        if (recentSends.length >= 3) {
+          isRateLimitedByDb = true
+        }
+      } catch (dbErr) {
+        console.error('Database query error in rate limit check:', dbErr)
+        const mockRecent = Array.from(mockTransmissions.values()).filter(
+          t => t.email === email && t.sentAt >= oneHourAgo
         )
-      
-      if (recentSends.length >= 3) {
-        return NextResponse.json(
-          { success: false, message: 'Rate limit exceeded. Maximum 3 transmission requests per hour.' },
-          { status: 429 }
-        )
+        if (mockRecent.length >= 3) isRateLimitedByDb = true
       }
     } else {
       const mockRecent = Array.from(mockTransmissions.values()).filter(
         t => t.email === email && t.sentAt >= oneHourAgo
       )
       if (mockRecent.length >= 3) {
-        return NextResponse.json(
-          { success: false, message: 'Rate limit exceeded. Maximum 3 transmission requests per hour.' },
-          { status: 429 }
-        )
+        isRateLimitedByDb = true
       }
     }
 
-    // Set user session in cookies (log them in)
-    const userId = await setSession(name, email)
+    if (isRateLimitedByDb) {
+      return NextResponse.json(
+        { success: false, message: 'Rate limit exceeded. Maximum 3 transmission requests per hour.' },
+        { status: 429 }
+      )
+    }
+
+    // Preserve existing teamName if active session exists
+    const currentSession = await getSession().catch(() => null)
+    const teamName = currentSession?.teamName
+
+    // Set user session in cookies (log them in / sync session)
+    const userId = await setSession(name, email, teamName).catch((err) => {
+      console.error('setSession error in send route:', err)
+      return crypto.randomUUID()
+    })
 
     // Generate unique recovery key using CSPRNG
     let recoveryKey = ''
@@ -105,12 +122,20 @@ export async function POST(request: NextRequest) {
       recoveryKey = `NULL-PLAGAS-${randomCode}`
 
       if (isDbAvailable) {
-        const existing = await db
-          .select()
-          .from(emailTransmissions)
-          .where(eq(emailTransmissions.recoveryKey, recoveryKey))
-        if (existing.length === 0) {
-          isUnique = true
+        try {
+          const existing = await db
+            .select()
+            .from(emailTransmissions)
+            .where(eq(emailTransmissions.recoveryKey, recoveryKey))
+          if (existing.length === 0) {
+            isUnique = true
+          }
+        } catch (dbErr) {
+          console.error('Database error checking recovery key uniqueness:', dbErr)
+          const existing = Array.from(mockTransmissions.values()).find(
+            t => t.recoveryKey === recoveryKey
+          )
+          if (!existing) isUnique = true
         }
       } else {
         const existing = Array.from(mockTransmissions.values()).find(
@@ -146,33 +171,45 @@ export async function POST(request: NextRequest) {
       updatedAt: new Date(),
       resendCount: 0,
       lastResentAt: null,
+      deliveryStatus: 'queued',
+      deliveryError: null,
     }
 
     if (isDbAvailable) {
-      await db.insert(emailTransmissions).values({
-        id: transmissionId,
-        name,
-        email,
-        sector,
-        stageId: 2,
-        answer: 'PLAGAS',
-        recoveryKey,
-        isVerified: false,
-        sentAt: newRecord.sentAt,
-        createdAt: newRecord.createdAt,
-        updatedAt: newRecord.updatedAt,
-      })
-    } else {
-      mockTransmissions.set(transmissionId, newRecord)
+      try {
+        await db.insert(emailTransmissions).values({
+          id: transmissionId,
+          name,
+          email,
+          sector,
+          stageId: 2,
+          answer: 'PLAGAS',
+          recoveryKey,
+          isVerified: false,
+          sentAt: newRecord.sentAt,
+          createdAt: newRecord.createdAt,
+          updatedAt: newRecord.updatedAt,
+          deliveryStatus: 'queued',
+          deliveryError: null,
+        })
+      } catch (dbErr) {
+        console.error('Database insert error in transmissions/send:', dbErr)
+      }
     }
+    mockTransmissions.set(transmissionId, newRecord)
 
     // Compile email HTML & Text
-    const emailElement = React.createElement(DeadlightTransmissionEmail, {
-      name,
-      sector,
-      recoveryKey,
-    })
-    const emailHtml = await render(emailElement)
+    let emailHtml = ''
+    try {
+      const emailElement = React.createElement(DeadlightTransmissionEmail, {
+        name,
+        sector,
+        recoveryKey,
+      })
+      emailHtml = await render(emailElement)
+    } catch (renderErr) {
+      console.error('Failed to render React Email element:', renderErr)
+    }
     const emailText = `
 PROJECT NULL // INTERCEPTED DATA PACKETS // SITE KENNEDY
 ----------------------------------------------------------------------
@@ -238,39 +275,21 @@ N=14 O=15 P=16 Q=17 R=18 S=19 T=20 U=21 V=22 W=23 X=24 Y=25 Z=26
 PROJECT NULL // SITE KENNEDY COMMAND HQ // 1996
 `
 
-    // Deliver email
-    const delivery = await sendClassifiedEmail({
+    // Queue background delivery job asynchronously without awaiting
+    queueMailDeliveryJob({
+      transmissionId,
       to: email,
       subject: '[CLASSIFIED] Recovered Transmission — Site Kennedy',
       html: emailHtml,
       text: emailText,
+      db,
+      isDbAvailable,
+      emailTransmissions,
+      mockTransmissions,
     })
 
-    // Log delivery metadata in DB / Mock store
-    if (isDbAvailable) {
-      await db
-        .update(emailTransmissions)
-        .set({
-          deliveryStatus: delivery.success ? 'success' : 'failed',
-          deliveryError: delivery.error || null,
-        })
-        .where(eq(emailTransmissions.id, transmissionId))
-    } else {
-      const record = mockTransmissions.get(transmissionId)
-      if (record) {
-        mockTransmissions.set(transmissionId, {
-          ...record,
-          deliveryStatus: delivery.success ? 'success' : 'failed',
-          deliveryError: delivery.error || null,
-        } as any)
-      }
-    }
-
-    if (!delivery.success) {
-      console.error('Email transmission warning:', delivery.error)
-    }
-
     return NextResponse.json({ success: true })
+
   } catch (error: any) {
     console.error('Transmission send API exception:', error)
     return NextResponse.json(

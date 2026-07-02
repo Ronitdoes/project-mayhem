@@ -12,32 +12,36 @@ interface ForgottenHymnProps {
 function ForgottenHymn({ activeAnomaly, onSolve }: ForgottenHymnProps) {
   const [answer, setAnswer] = useState('');
   const [error, setError] = useState(false);
-  const [correctAnswer, setCorrectAnswer] = useState('flame');
+  const [isVerifying, setIsVerifying] = useState(false);
 
-  useEffect(() => {
-    async function loadAnswer() {
-      try {
-        const res = await fetch("/api/questions?caseId=03");
-        const data = await res.json();
-        if (data.success && data.questions) {
-          const q = data.questions.find((x: any) => x.puzzleKey === "caesar_scroll");
-          if (q) setCorrectAnswer(q.answer.toLowerCase());
-        }
-      } catch (e) {
-        console.error(e);
-      }
-    }
-    loadAnswer();
-  }, []);
-
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (answer.toLowerCase().trim() === correctAnswer) {
-      setError(false);
-      onSolve();
-    } else {
+    if (isVerifying) return;
+    setIsVerifying(true);
+    try {
+      const res = await fetch("/api/questions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          caseId: "03",
+          puzzleKey: "caesar_scroll",
+          answer: answer
+        })
+      });
+      const data = await res.json();
+      if (data.success && data.correct) {
+        setError(false);
+        onSolve();
+      } else {
+        setError(true);
+        setTimeout(() => setError(false), 2000);
+      }
+    } catch (err) {
+      console.error(err);
       setError(true);
       setTimeout(() => setError(false), 2000);
+    } finally {
+      setIsVerifying(false);
     }
   };
 
@@ -306,28 +310,12 @@ function ChronicleReconstruction({ activeAnomaly, onSolve }: ChronicleProps) {
   const [items, setItems] = useState<ParaItem[]>([]);
   const [answer, setAnswer] = useState('');
   const [error, setError] = useState(false);
-  const [correctAnswer, setCorrectAnswer] = useState('light leads only the worthy home');
+  const [isVerifying, setIsVerifying] = useState(false);
 
   useEffect(() => {
     // Shuffle items once on load
     const shuffled = [...CHRONICLES_INITIAL].sort(() => Math.random() - 0.5);
     setItems(shuffled);
-  }, []);
-
-  useEffect(() => {
-    async function loadAnswer() {
-      try {
-        const res = await fetch("/api/questions?caseId=03");
-        const data = await res.json();
-        if (data.success && data.questions) {
-          const q = data.questions.find((x: any) => x.puzzleKey === "chronicle_sort");
-          if (q) setCorrectAnswer(q.answer.toLowerCase());
-        }
-      } catch (e) {
-        console.error(e);
-      }
-    }
-    loadAnswer();
   }, []);
 
   const moveItem = (index: number, direction: 'up' | 'down') => {
@@ -343,15 +331,34 @@ function ChronicleReconstruction({ activeAnomaly, onSolve }: ChronicleProps) {
 
   const isCorrectOrder = items.every((item, idx) => item.order === idx);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const cleanAnswer = answer.toLowerCase().trim().replace(/\s+/g, ' ');
-    if (cleanAnswer === correctAnswer) {
-      setError(false);
-      onSolve();
-    } else {
+    if (isVerifying) return;
+    setIsVerifying(true);
+    try {
+      const res = await fetch("/api/questions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          caseId: "03",
+          puzzleKey: "chronicle_sort",
+          answer: answer
+        })
+      });
+      const data = await res.json();
+      if (data.success && data.correct) {
+        setError(false);
+        onSolve();
+      } else {
+        setError(true);
+        setTimeout(() => setError(false), 2000);
+      }
+    } catch (err) {
+      console.error(err);
       setError(true);
       setTimeout(() => setError(false), 2000);
+    } finally {
+      setIsVerifying(false);
     }
   };
 
@@ -1217,7 +1224,7 @@ function FlameImagePuzzle({ activeAnomaly, onSolve }: FlameImagePuzzleProps) {
               style={{
                 width: '100%',
                 height: '100%',
-                backgroundImage: 'url("/case-03/mystical-flame.jpg")',
+                backgroundImage: 'url("/case-03/mystical-flame.avif")',
                 backgroundSize: '400% 400%',
                 backgroundPosition: `${xPercent}% ${yPercent}%`,
                 border: isSelected 
@@ -1240,7 +1247,7 @@ function FlameImagePuzzle({ activeAnomaly, onSolve }: FlameImagePuzzleProps) {
             style={{
               position: 'absolute',
               inset: 0,
-              backgroundImage: 'url("/case-03/mystical-flame.jpg")',
+              backgroundImage: 'url("/case-03/mystical-flame.avif")',
               backgroundSize: 'cover',
               opacity: 0.85,
               pointerEvents: 'none',
@@ -1298,8 +1305,88 @@ function FlameImagePuzzle({ activeAnomaly, onSolve }: FlameImagePuzzleProps) {
 // ==========================================
 // MAIN WRAPPER
 // ==========================================
+export function TypewriterText({ text, speed = 25, onComplete }: { text: string; speed?: number; onComplete?: () => void }) {
+  const [displayedText, setDisplayedText] = useState("");
+  const [isDone, setIsDone] = useState(false);
+  
+  useEffect(() => {
+    let index = 0;
+    setDisplayedText("");
+    setIsDone(false);
+    
+    if (!text) {
+      setIsDone(true);
+      if (onComplete) onComplete();
+      return;
+    }
+
+    const interval = setInterval(() => {
+      setDisplayedText((prev) => prev + text.charAt(index));
+      index++;
+      if (index >= text.length) {
+        clearInterval(interval);
+        setIsDone(true);
+        if (onComplete) onComplete();
+      }
+    }, speed);
+    return () => clearInterval(interval);
+  }, [text, speed]);
+
+  return (
+    <span style={{ whiteSpace: "pre-line", fontFamily: 'var(--font-mono)' }}>
+      {displayedText}
+      {!isDone && <span className="terminal-cursor" style={{
+        display: 'inline-block',
+        width: '8px',
+        height: '15px',
+        background: 'var(--color-accent)',
+        marginLeft: '4px',
+        animation: 'terminal-cursor-blink 0.8s infinite'
+      }} />}
+      <style>{`
+        @keyframes terminal-cursor-blink {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0; }
+        }
+      `}</style>
+    </span>
+  );
+}
+
+const SNIPPETS: Record<string, { title: string; body: string }> = {
+  a1: {
+    title: "STAGE 1 — THE FORGOTTEN HYMN",
+    body: "Only one hymn\nsurvived intact.\n\nThe words\nseemed ordinary.\n\nThe answer\nwas never inside them.\n\nIt was\nwhere they began."
+  },
+  a2: {
+    title: "STAGE 2 — THE CAESAR SCROLL",
+    body: "A stone tablet\nwas recovered.\n\nIts message\nwas unreadable.\n\nNothing was missing.\n\nOnly shifted."
+  },
+  a3: {
+    title: "STAGE 3 — THE LOST CHRONICLE",
+    body: "Six pages\nwere found.\n\nNone were numbered.\n\nOnly when restored\nto their true order\n\ndid the hidden message\nappear."
+  },
+  a4: {
+    title: "STAGE 4 — THE MEMORY ROOM",
+    body: "Six chambers.\n\nSix symbols.\n\nEvery survivor\nremembered them differently.\n\nTrust\nyour first memory."
+  },
+  a5: {
+    title: "STAGE 5 — THE TEMPLE FLOOR",
+    body: "No map.\n\nNo directions.\n\nOnly one inscription:\n\n\"Walk where\nthe Flame once walked.\""
+  },
+  a6: {
+    title: "STAGE 6 — THE CANDLE MELODY",
+    body: "The candles\nnever burned randomly.\n\nThey sang\nwithout sound.\n\nWatch.\n\nThen answer."
+  },
+  a7: {
+    title: "STAGE 7 — THE FRACTURED SHRINE",
+    body: "The shrine\nwas broken.\n\nSixteen fragments.\n\nNothing new\ncould be discovered.\n\nOnly restored."
+  }
+};
+
 interface ActiveAnomaly {
   key: string;
+  id: string;
   puzzles?: { type: string }[];
   type?: string;
 }
@@ -1314,10 +1401,14 @@ interface QuestionModalProps {
 export function QuestionModal({ activeAnomaly, solveAnomaly, closeAnomaly, showMap }: QuestionModalProps) {
   const [currentPuzzleIndex, setCurrentPuzzleIndex] = useState(0);
   const [prevAnomaly, setPrevAnomaly] = useState<ActiveAnomaly | null>(null);
+  const [showSnippet, setShowSnippet] = useState(true);
+  const [snippetCompleted, setSnippetCompleted] = useState(false);
 
   if (activeAnomaly !== prevAnomaly) {
     setPrevAnomaly(activeAnomaly);
     setCurrentPuzzleIndex(0);
+    setShowSnippet(true);
+    setSnippetCompleted(false);
   }
 
   if (!activeAnomaly) return null;
@@ -1330,33 +1421,70 @@ export function QuestionModal({ activeAnomaly, solveAnomaly, closeAnomaly, showM
   const handleSolve = () => {
     if (currentPuzzleIndex < puzzles.length - 1) {
       setCurrentPuzzleIndex(currentPuzzleIndex + 1);
+      setShowSnippet(true);
+      setSnippetCompleted(false);
     } else {
       solveAnomaly(activeAnomaly.key);
     }
   };
 
+  const snippet = SNIPPETS[activeAnomaly.id];
+
   return (
     <div className="modal-overlay">
       <div className="hud-box modal-box">
-        <h2 className="modal-title">
-          ANOMALY TERMINAL DETECTED
-        </h2>
-        <div className="modal-content" style={{ marginTop: '1.2rem' }}>
-          
-          {currentPuzzle.type === 'forgotten_hymn' && <ForgottenHymn key={`${activeAnomaly.key}-${currentPuzzleIndex}`} activeAnomaly={currentPuzzle} onSolve={handleSolve} />}
-          {currentPuzzle.type === 'caesar_scroll' && <CaesarScroll key={`${activeAnomaly.key}-${currentPuzzleIndex}`} activeAnomaly={currentPuzzle} onSolve={handleSolve} />}
-          {currentPuzzle.type === 'chronicle_reconstruction' && <ChronicleReconstruction key={`${activeAnomaly.key}-${currentPuzzleIndex}`} activeAnomaly={currentPuzzle} onSolve={handleSolve} />}
-          {(currentPuzzle.type === 'memory_room' || currentPuzzle.type === 'excavation_grid') && <MemoryRoom key={`${activeAnomaly.key}-${currentPuzzleIndex}`} activeAnomaly={currentPuzzle} onSolve={handleSolve} />}
-          {currentPuzzle.type === 'temple_floor' && <TempleFloor key={`${activeAnomaly.key}-${currentPuzzleIndex}`} activeAnomaly={currentPuzzle} onSolve={handleSolve} />}
-          {(currentPuzzle.type === 'candle_piano' || currentPuzzle.type === 'cathedral_organ') && <CandlePiano key={`${activeAnomaly.key}-${currentPuzzleIndex}`} activeAnomaly={currentPuzzle} onSolve={handleSolve} />}
-          {(currentPuzzle.type === 'flame_image_puzzle' || currentPuzzle.type === 'impossible_map') && <FlameImagePuzzle key={`${activeAnomaly.key}-${currentPuzzleIndex}`} activeAnomaly={currentPuzzle} onSolve={handleSolve} />}
-
-          <div className="modal-actions" style={{ marginTop: '2rem' }}>
-            <button type="button" onClick={closeAnomaly} className="basic-btn secondary-btn">
-              Abort
-            </button>
+        {showSnippet && snippet ? (
+          <div>
+            <h2 className="modal-title" style={{ color: 'var(--color-accent)' }}>
+              {snippet.title}
+            </h2>
+            <div className="modal-content" style={{ marginTop: '1.2rem', textAlign: 'left', minHeight: '150px' }}>
+              <div className="question-text" style={{ fontSize: '1rem', lineHeight: '1.8', letterSpacing: '1px' }}>
+                <TypewriterText 
+                  text={snippet.body} 
+                  speed={25} 
+                  onComplete={() => setSnippetCompleted(true)} 
+                />
+              </div>
+              
+              <div className="modal-actions" style={{ marginTop: '2.5rem' }}>
+                {snippetCompleted && (
+                  <button 
+                    type="button" 
+                    onClick={() => setShowSnippet(false)} 
+                    className="basic-btn primary-btn"
+                  >
+                    ACCESS ANOMALY
+                  </button>
+                )}
+                <button type="button" onClick={closeAnomaly} className="basic-btn secondary-btn">
+                  Abort
+                </button>
+              </div>
+            </div>
           </div>
-        </div>
+        ) : (
+          <>
+            <h2 className="modal-title">
+              ANOMALY TERMINAL DETECTED
+            </h2>
+            <div className="modal-content" style={{ marginTop: '1.2rem' }}>
+              {currentPuzzle.type === 'forgotten_hymn' && <ForgottenHymn key={`${activeAnomaly.key}-${currentPuzzleIndex}`} activeAnomaly={currentPuzzle} onSolve={handleSolve} />}
+              {currentPuzzle.type === 'caesar_scroll' && <CaesarScroll key={`${activeAnomaly.key}-${currentPuzzleIndex}`} activeAnomaly={currentPuzzle} onSolve={handleSolve} />}
+              {currentPuzzle.type === 'chronicle_reconstruction' && <ChronicleReconstruction key={`${activeAnomaly.key}-${currentPuzzleIndex}`} activeAnomaly={currentPuzzle} onSolve={handleSolve} />}
+              {(currentPuzzle.type === 'memory_room' || currentPuzzle.type === 'excavation_grid') && <MemoryRoom key={`${activeAnomaly.key}-${currentPuzzleIndex}`} activeAnomaly={currentPuzzle} onSolve={handleSolve} />}
+              {currentPuzzle.type === 'temple_floor' && <TempleFloor key={`${activeAnomaly.key}-${currentPuzzleIndex}`} activeAnomaly={currentPuzzle} onSolve={handleSolve} />}
+              {(currentPuzzle.type === 'candle_piano' || currentPuzzle.type === 'cathedral_organ') && <CandlePiano key={`${activeAnomaly.key}-${currentPuzzleIndex}`} activeAnomaly={currentPuzzle} onSolve={handleSolve} />}
+              {(currentPuzzle.type === 'flame_image_puzzle' || currentPuzzle.type === 'impossible_map') && <FlameImagePuzzle key={`${activeAnomaly.key}-${currentPuzzleIndex}`} activeAnomaly={currentPuzzle} onSolve={handleSolve} />}
+
+              <div className="modal-actions" style={{ marginTop: '2rem' }}>
+                <button type="button" onClick={closeAnomaly} className="basic-btn secondary-btn">
+                  Abort
+                </button>
+              </div>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

@@ -287,37 +287,55 @@ export function AlertElimination({ onSolved }: { onSolved: () => void }) {
     setStatus('active')
   }
 
-  function handleInterludeSubmit(e: React.FormEvent) {
+  const [isVerifying, setIsVerifying] = useState(false)
+
+  async function handleInterludeSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (interludeCooldown > 0) return
+    if (interludeCooldown > 0 || isVerifying) return
+    setIsVerifying(true)
 
-    const input = interludeInput.trim().toUpperCase()
-    if (interludeId === 1) {
-      if (input === 'QUARANTINE') {
-        // Proceed to wave 2
-        setWave(1)
-        setCleared(0)
-        setAlerts([])
-        setTimeLeft(WAVE_CONFIG[1].duration)
-        setStatus('active')
+    try {
+      const res = await fetch("/api/questions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          caseId: "07",
+          puzzleKey: interludeId === 1 ? "interlude-1" : "interlude-2",
+          answer: interludeInput
+        })
+      })
+      const data = await res.json()
+      if (data.success && data.correct) {
+        if (interludeId === 1) {
+          // Proceed to wave 2
+          setWave(1)
+          setCleared(0)
+          setAlerts([])
+          setTimeLeft(WAVE_CONFIG[1].duration)
+          setStatus('active')
+        } else {
+          // Proceed to wave 3
+          setWave(2)
+          setCleared(0)
+          setAlerts([])
+          setTimeLeft(WAVE_CONFIG[2].duration)
+          setStatus('active')
+        }
       } else {
-        setInterludeError('INVALID PROTOCOL KEY. TERMINAL LOCKED FOR 5 SECONDS.')
+        if (interludeId === 1) {
+          setInterludeError('INVALID PROTOCOL KEY. TERMINAL LOCKED FOR 5 SECONDS.')
+        } else {
+          setInterludeError('DECRYPTION FAILURE. BACKUP POWER SHUTTING DOWN. TERMINAL LOCKED FOR 5 SECONDS.')
+        }
         setInterludeCooldown(5)
       }
-    } else {
-      if (input === 'SURVIVAL') {
-        // Proceed to wave 3
-        setWave(2)
-        setCleared(0)
-        setAlerts([])
-        setTimeLeft(WAVE_CONFIG[2].duration)
-        setStatus('active')
-      } else {
-        setInterludeError('DECRYPTION FAILURE. BACKUP POWER SHUTTING DOWN. TERMINAL LOCKED FOR 5 SECONDS.')
-        setInterludeCooldown(5)
-      }
+    } catch (err) {
+      console.error(err)
+      setInterludeError('COMMUNICATION ERROR. TERMINAL LOCKED FOR 5 SECONDS.')
+      setInterludeCooldown(5)
+    } finally {
+      setIsVerifying(false)
     }
-
   }
 
   const config = WAVE_CONFIG[wave]

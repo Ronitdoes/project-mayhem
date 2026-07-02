@@ -7,7 +7,8 @@ export async function markCaseCompleted(caseNum: string) {
   const key = `case-${caseNum}-completed`;
   const alreadyCompleted = document.cookie.includes(`${key}=true`);
 
-  document.cookie = `${key}=true; path=/; max-age=31536000; SameSite=Lax`;
+  const isSecure = window.location.protocol === "https:";
+  document.cookie = `${key}=true; path=/; max-age=31536000; SameSite=Lax${isSecure ? '; Secure' : ''}`;
 
   const caseInt = parseInt(caseNum, 10);
   if (!alreadyCompleted && caseInt >= 1 && caseInt <= 8) {

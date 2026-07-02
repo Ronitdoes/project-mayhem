@@ -1,4 +1,5 @@
 import React from "react";
+import Image from "next/image";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 
@@ -40,9 +41,11 @@ export function PuzzleTile({ id, url }: PuzzleTileProps) {
       <div className="absolute inset-0 bg-gradient-to-b from-transparent via-cyan-500/[0.03] to-transparent opacity-0 hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
 
       {/* Image Fragment */}
-      <img
+      <Image
         src={url}
         alt={`Archive Fragment ${id}`}
+        fill
+        sizes="(max-width: 768px) 50vw, 25vw"
         draggable={false}
         className="w-full h-full object-cover select-none pointer-events-none"
       />

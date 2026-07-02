@@ -1,81 +1,247 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db, isDbAvailable } from '@/db'
 import { caseQuestions } from '@/db/schema'
-import { eq } from 'drizzle-orm'
+import { eq, and } from 'drizzle-orm'
 
-const ALL_SEED_QUESTIONS = [
-  // CASE 1
-  { caseId: "01", puzzleKey: "a1_2", question: "What is the primary color of the sun?", answer: "yellow" },
-  { caseId: "01", puzzleKey: "a2_1", question: "What is the primary color of the sun?", answer: "yellow" },
-  { caseId: "01", puzzleKey: "a3_0", question: "What is the primary color of the sun?", answer: "yellow" },
-  { caseId: "01", puzzleKey: "a3_1", question: "What is the primary color of the sun?", answer: "yellow" },
-  { caseId: "01", puzzleKey: "a4_1", question: "What is the primary color of the sun?", answer: "yellow" },
-  { caseId: "01", puzzleKey: "a5_0", question: "What is the primary color of the sun?", answer: "yellow" },
-  { caseId: "01", puzzleKey: "a5_1", question: "What is the primary color of the sun?", answer: "yellow" },
-  { caseId: "01", puzzleKey: "a5_2", question: "What is the primary color of the sun?", answer: "yellow" },
-  { caseId: "01", puzzleKey: "a6_0", question: "What is the primary color of the sun?", answer: "yellow" },
-  { caseId: "01", puzzleKey: "a6_2", question: "What is the primary color of the sun?", answer: "yellow" },
-  { caseId: "01", puzzleKey: "a7_2", question: "What is the primary color of the sun?", answer: "yellow" },
+function normalize(s: string): string {
+  if (!s) return "";
+  return s
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
 
-  // CASE 2
-  { caseId: "02", puzzleKey: "cw_0", question: "Every empire loses to me, yet I never raise a sword.", answer: "TIME" },
-  { caseId: "02", puzzleKey: "cw_1", question: "Kingdoms rise beside me, explorers cross me, and history is often shaped by me.", answer: "OCEAN" },
-  { caseId: "02", puzzleKey: "cw_2", question: "Burn me, and memory survives only in mouths. Preserve me, and centuries may still speak.", answer: "RECORD" },
-  { caseId: "02", puzzleKey: "cw_3", question: "I don't prove the truth. I merely leave it with nowhere to hide.", answer: "EVIDENCE" },
-  { caseId: "02", puzzleKey: "cw_4", question: "Every answer is built upon me, though I am rarely the answer myself.", answer: "CLUE" },
-  { caseId: "02", puzzleKey: "cw_5", question: "Before the truth is read, this is always the first thing done.", answer: "OPENED" },
-  { caseId: "02", puzzleKey: "cw_6", question: "Two witnesses can possess completely different versions of me.", answer: "VIEW" },
-  { caseId: "02", puzzleKey: "cw_7", question: "Time buries me. Museums rescue me.", answer: "EXHIBIT" },
-  { caseId: "02", puzzleKey: "cw_8", question: "Remove one line from me, and tomorrow's historians inherit a different yesterday.", answer: "REGISTER" },
-  { caseId: "02", puzzleKey: "cw_keyword", question: "Crossword Keyword", answer: "TORECOVER" },
+const MAX_FUZZY_STRING_LENGTH = 300;
+const similarityCache = new Map<string, number>();
+const MAX_CACHE_SIZE = 500;
 
-  // CASE 3
-  { caseId: "03", puzzleKey: "caesar_scroll", question: "What sustained their civilization?", answer: "FLAME" },
-  { caseId: "03", puzzleKey: "chronicle_sort", question: "Uncover the chronicles directive", answer: "LIGHT LEADS ONLY THE WORTHY HOME" },
+// Sliding window rate limiter to prevent brute-force ReDoS / CPU exhaustion
+const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
+const RATE_LIMIT_WINDOW_MS = 60 * 1000; // 1 minute
+const MAX_POST_REQUESTS_PER_WINDOW = 30; // 30 attempts per minute
 
-  // CASE 4
-  { caseId: "04", puzzleKey: "audio_game", question: "Audio game decrypt input", answer: "CRIMSON" },
-  { caseId: "04", puzzleKey: "fortune_teller", question: "Fortune teller answer", answer: "PARADOX" },
-  { caseId: "04", puzzleKey: "mirror_script", question: "Mirror script code word", answer: "REVEAL" },
-  { caseId: "04", puzzleKey: "shooting_range_logs", question: "Log packet intruder pattern", answer: "INTRUDER_17" },
+function checkRateLimit(identifier: string): boolean {
+  const now = Date.now();
+  const entry = rateLimitMap.get(identifier);
+  if (!entry || now > entry.resetAt) {
+    rateLimitMap.set(identifier, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
+    return false;
+  }
+  if (entry.count >= MAX_POST_REQUESTS_PER_WINDOW) {
+    return true;
+  }
+  entry.count++;
+  return false;
+}
 
-  // CASE 5
-  { caseId: "05", puzzleKey: "math_trick", question: "Convert hex 0x5f3759df to decimal and sum the digits", answer: "42" },
-  { caseId: "05", puzzleKey: "wilhelm_scream", question: "Sound effect Private character name", answer: "PRIVATE WILHELM" },
-  { caseId: "05", puzzleKey: "taured_passport", question: "Mystery passport country name", answer: "TAURED" },
-  { caseId: "05", puzzleKey: "kryptos_cipher", question: "Second clue passage", answer: "BERLIN" },
-  { caseId: "05", puzzleKey: "deep_blue", question: "IBM Deep Blue chess champion name", answer: "GARRY KASPAROV" },
-  { caseId: "05", puzzleKey: "golden_record", question: "Ann Druyan voyager record husband name", answer: "CARL SAGAN" },
-  { caseId: "05", puzzleKey: "demon_core", question: "Plutonium sphere nickname", answer: "DEMON CORE" },
-  { caseId: "05", puzzleKey: "poe_cipher", question: "Poe Graham cipher solver name", answer: "GIL BROZA" }
-]
+// Optimized 1D Levenshtein distance algorithm (O(min(M,N)) memory)
+function getLevenshteinDistance(s1: string, s2: string): number {
+  if (s1 === s2) return 0;
+  if (s1.length === 0) return s2.length;
+  if (s2.length === 0) return s1.length;
+
+  // Cap string length to prevent CPU exhaustion on extremely long inputs
+  if (s1.length > MAX_FUZZY_STRING_LENGTH) s1 = s1.slice(0, MAX_FUZZY_STRING_LENGTH);
+  if (s2.length > MAX_FUZZY_STRING_LENGTH) s2 = s2.slice(0, MAX_FUZZY_STRING_LENGTH);
+
+  // Ensure s1 is shorter to minimize Int32Array size
+  if (s1.length > s2.length) {
+    const tmpStr = s1;
+    s1 = s2;
+    s2 = tmpStr;
+  }
+
+  const len1 = s1.length;
+  const len2 = s2.length;
+
+  let prev = new Int32Array(len1 + 1);
+  let curr = new Int32Array(len1 + 1);
+
+  for (let i = 0; i <= len1; i++) {
+    prev[i] = i;
+  }
+
+  for (let j = 1; j <= len2; j++) {
+    curr[0] = j;
+    const char2 = s2.charCodeAt(j - 1);
+    for (let i = 1; i <= len1; i++) {
+      const cost = s1.charCodeAt(i - 1) === char2 ? 0 : 1;
+      curr[i] = Math.min(
+        prev[i] + 1,       // deletion
+        curr[i - 1] + 1,   // insertion
+        prev[i - 1] + cost // substitution
+      );
+    }
+    const tmp = prev;
+    prev = curr;
+    curr = tmp;
+  }
+
+  return prev[len1];
+}
+
+function getSimilarity(s1: string, s2: string): number {
+  if (s1 === s2) return 1.0;
+  
+  const cacheKey = s1 < s2 ? `${s1}:${s2}` : `${s2}:${s1}`;
+  const cached = similarityCache.get(cacheKey);
+  if (cached !== undefined) return cached;
+
+  const maxLen = Math.max(s1.length, s2.length);
+  if (maxLen === 0) return 1.0;
+
+  const dist = getLevenshteinDistance(s1, s2);
+  const similarity = 1 - dist / maxLen;
+
+  if (similarityCache.size >= MAX_CACHE_SIZE) {
+    const firstKey = similarityCache.keys().next().value;
+    if (firstKey) similarityCache.delete(firstKey);
+  }
+  similarityCache.set(cacheKey, similarity);
+  return similarity;
+}
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
   const caseId = searchParams.get('caseId')
+  const puzzleKey = searchParams.get('puzzleKey')
+  const limitParam = Math.min(Math.max(parseInt(searchParams.get('limit') || '100', 10) || 100, 1), 100)
+  const offsetParam = Math.max(parseInt(searchParams.get('offset') || '0', 10) || 0, 0)
 
   if (!caseId) {
     return NextResponse.json({ success: false, error: 'caseId parameter required' }, { status: 400 })
   }
 
-  const defaultForCase = ALL_SEED_QUESTIONS.filter(q => q.caseId === caseId)
-
   if (!isDbAvailable) {
-    return NextResponse.json({ success: true, questions: defaultForCase })
+    return NextResponse.json({ success: false, error: 'Database not available' }, { status: 503 })
   }
 
   try {
-    let rows = await db.select().from(caseQuestions).where(eq(caseQuestions.caseId, caseId))
-    if (rows.length === 0) {
-      // Seed table with default questions if empty for this caseId
-      if (defaultForCase.length > 0) {
-        await db.insert(caseQuestions).values(defaultForCase)
-        rows = await db.select().from(caseQuestions).where(eq(caseQuestions.caseId, caseId))
-      }
-    }
+    const whereConditions = puzzleKey
+      ? and(eq(caseQuestions.caseId, caseId), eq(caseQuestions.puzzleKey, puzzleKey))
+      : eq(caseQuestions.caseId, caseId)
+
+    const rows = await db.select({
+      id: caseQuestions.id,
+      caseId: caseQuestions.caseId,
+      puzzleKey: caseQuestions.puzzleKey,
+      question: caseQuestions.question
+    })
+    .from(caseQuestions)
+    .where(whereConditions)
+    .limit(limitParam)
+    .offset(offsetParam)
+
     return NextResponse.json({ success: true, questions: rows })
   } catch (error) {
     console.error(`Failed to get Case ${caseId} questions:`, error)
     return NextResponse.json({ success: false, error: 'Database read error' }, { status: 500 })
+  }
+}
+
+export async function POST(request: NextRequest) {
+  const clientIp = request.headers.get('x-forwarded-for') || 'anonymous';
+  if (checkRateLimit(clientIp)) {
+    return NextResponse.json(
+      { success: false, error: 'Too many answer attempts. Please wait a minute.' },
+      { status: 429 }
+    );
+  }
+
+  if (!isDbAvailable) {
+    return NextResponse.json({ success: false, error: 'Database not available' }, { status: 503 })
+  }
+
+  try {
+    const body = await request.json()
+    const { caseId, puzzleKey, answer } = body
+
+    if (!caseId || !puzzleKey || typeof answer !== 'string' || answer.length > 500) {
+      return NextResponse.json({ success: false, error: 'Invalid parameters' }, { status: 400 })
+    }
+
+    const normalizedKey = puzzleKey.replaceAll("-", "_");
+
+    const rows = await db.select({
+      answer: caseQuestions.answer
+    }).from(caseQuestions).where(
+      and(
+        eq(caseQuestions.caseId, caseId),
+        eq(caseQuestions.puzzleKey, normalizedKey)
+      )
+    )
+
+    if (rows.length === 0) {
+      return NextResponse.json({ success: true, correct: false, message: 'Question not found' })
+    }
+
+    const dbAnswer = rows[0].answer
+    const normDb = normalize(dbAnswer)
+    const normUser = normalize(answer)
+
+    let correct = normDb === normUser
+    let partial = false
+
+    const aliases: string[] = []
+    let fuzzyThreshold = 1.0
+
+    if (normalizedKey === 'stage7') {
+      aliases.push('null7', 'null-7', 'null 7')
+    } else if (normalizedKey === 'wilhelm_scream') {
+      aliases.push('wilhelm')
+    } else if (normalizedKey === 'poe_cipher') {
+      aliases.push('gil bronza', 'gil broza')
+      fuzzyThreshold = 0.8
+    } else if (normalizedKey === 'deep_blue') {
+      aliases.push('kasparov')
+      fuzzyThreshold = 0.8
+    } else if (normalizedKey === 'kryptos_cipher') {
+      fuzzyThreshold = 0.9
+    } else if (normalizedKey === 'mirror_script') {
+      aliases.push('carnival 17', 'carnival17', 'reveal')
+    } else if (normalizedKey === 'golden_record') {
+      fuzzyThreshold = 0.8
+    }
+
+    // Special Case 8 handling
+    if (caseId === '08') {
+      if (normalizedKey === 'p1') {
+        aliases.push('14 october 1972', '14-oct-1972')
+      }
+    }
+
+    const normAliases = aliases.map(normalize)
+
+    if (!correct) {
+      if (normAliases.includes(normUser)) {
+        correct = true
+      }
+    }
+
+    if (!correct && fuzzyThreshold < 1.0) {
+      if (getSimilarity(normDb, normUser) >= fuzzyThreshold) {
+        correct = true
+      }
+      for (const normAlias of normAliases) {
+        if (getSimilarity(normAlias, normUser) >= fuzzyThreshold) {
+          correct = true
+        }
+      }
+    }
+
+    // Partial credit check
+    if (!correct && normUser.length >= 3) {
+      const isSubstringOfCanonical = normDb.includes(normUser)
+      const isSubstringOfAnyAlias = normAliases.some(alias => alias.includes(normUser))
+      if (isSubstringOfCanonical || isSubstringOfAnyAlias) {
+        partial = true
+      }
+    }
+
+    return NextResponse.json({ success: true, correct, partial })
+  } catch (error) {
+    console.error('Failed to validate question:', error)
+    return NextResponse.json({ success: false, error: 'Database verification error' }, { status: 500 })
   }
 }

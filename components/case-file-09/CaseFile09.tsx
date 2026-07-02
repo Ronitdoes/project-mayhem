@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
 import { markCaseCompleted } from "@/components/case-progress";
 import { ImageOrderingEngine } from "./ImageOrderingEngine";
@@ -18,14 +19,14 @@ const CASE_9_PUZZLE: PuzzleConfig = {
     "Reconstruct the final archive symbol by dragging and arranging all eight collectible fragments into their correct positions.",
   imageFolder: "/Symbols",
   imageFiles: [
-    "cf1.png",
-    "cf2.png",
-    "cf3.png",
-    "cf4.png",
-    "cf5.png",
-    "cf6.png",
-    "cf7.png",
-    "cf8.png",
+    "cf1.avif",
+    "cf2.avif",
+    "cf3.avif",
+    "cf4.avif",
+    "cf5.avif",
+    "cf6.avif",
+    "cf7.avif",
+    "cf8.avif",
   ],
   correctOrder: [
     "cf1",
@@ -494,10 +495,15 @@ export default function CaseFile09() {
   return (
     <div
       className="min-h-screen w-full text-white bg-cover bg-center bg-no-repeat flex flex-col relative overflow-x-hidden font-mono"
-      style={{
-        backgroundImage: "url('/Hunt/Background-Image.png')",
-      }}
     >
+      <Image
+        src="/Hunt/Background-Image.avif"
+        alt="Background"
+        fill
+        priority
+        sizes="100vw"
+        className="object-cover object-center pointer-events-none -z-10"
+      />
       {/* Background cinematic dark overlays */}
       <div className="absolute inset-0 bg-black/75 pointer-events-none z-0" />
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_20%,rgba(0,0,0,0.85)_100%)] pointer-events-none z-0" />
@@ -601,7 +607,6 @@ export default function CaseFile09() {
                   <ArchiveFragmentPanel
                     storyText={STAGE_2_STORY_TEXT}
                     filePath="/assets/files/NULL.txt"
-                    expectedAnswer="NULLEVENT"
                     hints={STAGE_2_HINTS}
                     fileSize="216 Bytes"
                     statusText="No visible characters"

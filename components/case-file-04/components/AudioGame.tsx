@@ -145,11 +145,14 @@ export default function AudioGame({
 
           if (intensity < noise) continue;
 
-          let mappedY = (y * freq) % canvas.height;
+          let mappedY = y * freq;
+          if (mappedY >= canvas.height) break;
 
-          const red = Math.min(intensity, 255);
-          const green = Math.max(255 - intensity, 0);
-          const blue = Math.min(intensity * 0.5, 255);
+          // Green-to-magenta heatmap scaled by intensity to keep the background dark
+          const fade = Math.min(intensity / 40, 1.0);
+          const red = Math.min(intensity, 255) * fade;
+          const green = Math.max(255 - intensity, 0) * fade;
+          const blue = Math.min(intensity * 0.5, 255) * fade;
 
           ctx.fillStyle = `rgb(${red}, ${green}, ${blue})`;
           ctx.fillRect(x * 4, canvas.height - mappedY, 4, 2);
@@ -189,47 +192,52 @@ export default function AudioGame({
     };
   }, []);
 
-  const [correctPasscode, setCorrectPasscode] = useState("CRIMSON");
-
-  useEffect(() => {
-    async function load() {
-      try {
-        const res = await fetch("/api/questions?caseId=04");
-        const data = await res.json();
-        if (data.success && data.questions) {
-          const q = data.questions.find((x: any) => x.puzzleKey === "audio_game");
-          if (q) setCorrectPasscode(q.answer.toUpperCase());
-        }
-      } catch (e) {
-        console.error(e);
-      }
-    }
-    load();
-  }, []);
+  const [isVerifying, setIsVerifying] = useState(false);
 
   // ── SUBMIT VERIFICATION ──
-  const handleVerify = () => {
-    if (disabled || isSolvedState) return;
-    const cleanInput = passcode.trim().toUpperCase();
+  const handleVerify = async () => {
+    if (disabled || isSolvedState || isVerifying) return;
+    setIsVerifying(true);
 
-    if (cleanInput === correctPasscode) {
-      playBeep(900, 0.2);
-      setIsSolvedState(true);
-      setIsModalOpen(false);
-      setFeedback("");
-      if (audioRef.current) {
-        audioRef.current.pause();
+    try {
+      const res = await fetch("/api/questions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          caseId: "04",
+          puzzleKey: "audio_game",
+          answer: passcode
+        })
+      });
+      const data = await res.json();
+      if (data.success && data.correct) {
+        playBeep(900, 0.2);
+        setIsSolvedState(true);
+        setIsModalOpen(false);
+        setFeedback("");
+        if (audioRef.current) {
+          audioRef.current.pause();
+        }
+        setIsPlaying(false);
+        if (onSolved) {
+          onSolved();
+        }
+      } else {
+        playBeep(250, 0.25);
+        setFeedback("ACCESS DECRPTION FAILED. SEQUENCE MISMATCH.");
+        if (onFailed) {
+          onFailed();
+        }
       }
-      setIsPlaying(false);
-      if (onSolved) {
-        onSolved();
-      }
-    } else {
+    } catch (err) {
+      console.error(err);
       playBeep(250, 0.25);
-      setFeedback("ACCESS DECRPTION FAILED. SEQUENCE MISMATCH.");
+      setFeedback("ACCESS DECRPTION FAILED. CONNECTION ERROR.");
       if (onFailed) {
         onFailed();
       }
+    } finally {
+      setIsVerifying(false);
     }
   };
 
@@ -287,7 +295,7 @@ export default function AudioGame({
               <div className="relative flex-1 bg-black rounded-xl overflow-hidden border border-zinc-800 flex items-center justify-center min-h-[300px] md:min-h-[420px] w-full">
                 <canvas
                   ref={canvasRef}
-                  className="w-full h-full object-cover block"
+                  className="w-full h-full object-contain block"
                 />
 
                 {/* Ambient loading / instructions text overlay when not playing */}
@@ -436,7 +444,7 @@ export default function AudioGame({
                 <div className="min-h-[50px] flex items-center justify-center rounded-xl bg-zinc-950 border border-zinc-900/60 p-2 text-center">
                   {isStabilized ? (
                     <span className="text-emerald-400 text-xs font-mono font-bold tracking-wider animate-pulse uppercase">
-                      ❇️ SIGNAL STABILIZED: CLASH
+                      ❇️ SIGNAL STABILIZED: CRIMSON
                     </span>
                   ) : (
                     <span className="text-zinc-600 text-[10px] font-mono uppercase tracking-widest">

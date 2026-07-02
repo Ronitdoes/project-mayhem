@@ -2,13 +2,14 @@ import { NextRequest, NextResponse } from 'next/server'
 import { isDbAvailable, db } from '@/db'
 import { emailTransmissions } from '@/db/schema'
 import { mockTransmissions } from '@/app/hunt/case-07/lib/mockDb'
-import { sendClassifiedEmail } from '@/app/hunt/case-07/lib/brevo'
+import { queueMailDeliveryJob } from '@/app/hunt/case-07/lib/brevo'
 import { DeadlightTransmissionEmail } from '@/app/hunt/case-07/emails/case-07'
 import { render } from '@react-email/components'
 import React from 'react'
 import { eq, desc } from 'drizzle-orm'
 import { getSession, saveDemoState } from '@/app/hunt/case-07/lib/session'
 import { getClientIp, isRateLimited, verifyCsrf } from '@/app/hunt/case-07/lib/rateLimit'
+
 
 export async function POST(request: NextRequest) {
   try {
@@ -62,18 +63,23 @@ export async function POST(request: NextRequest) {
     let record: any = null
 
     if (isDbAvailable) {
-      const records = await db
-        .select()
-        .from(emailTransmissions)
-        .where(eq(emailTransmissions.email, cleanedEmail))
-        .orderBy(desc(emailTransmissions.sentAt))
-      
-      record = records[0]
-    } else {
+      try {
+        const records = await db
+          .select()
+          .from(emailTransmissions)
+          .where(eq(emailTransmissions.email, cleanedEmail))
+          .orderBy(desc(emailTransmissions.sentAt))
+          .limit(1)
+        record = records[0]
+      } catch (dbErr) {
+        console.error('Database query error in resend route:', dbErr)
+      }
+    }
+
+    if (!record) {
       const mockRecords = Array.from(mockTransmissions.values())
         .filter(t => t.email === cleanedEmail)
         .sort((a, b) => b.sentAt.getTime() - a.sentAt.getTime())
-      
       record = mockRecords[0]
     }
 
@@ -108,12 +114,18 @@ export async function POST(request: NextRequest) {
     const lastResentAt = new Date()
 
     // Render email template
-    const emailElement = React.createElement(DeadlightTransmissionEmail, {
-      name: record.name,
-      sector: record.sector,
-      recoveryKey: record.recoveryKey,
-    })
-    const emailHtml = await render(emailElement)
+    let emailHtml = ''
+    try {
+      const emailElement = React.createElement(DeadlightTransmissionEmail, {
+        name: record.name,
+        sector: record.sector,
+        recoveryKey: record.recoveryKey,
+      })
+      emailHtml = await render(emailElement)
+    } catch (renderErr) {
+      console.error('Failed to render React Email template in resend route:', renderErr)
+    }
+
     const emailText = `
 PROJECT NULL // INTERCEPTED DATA PACKETS // SITE KENNEDY (RESEND)
 ----------------------------------------------------------------------
@@ -179,46 +191,53 @@ N=14 O=15 P=16 Q=17 R=18 S=19 T=20 U=21 V=22 W=23 X=24 Y=25 Z=26
 PROJECT NULL // SITE KENNEDY COMMAND HQ // 1996
 `
 
-    // Re-deliver email
-    const delivery = await sendClassifiedEmail({
+    // Update resend tracking info immediately to queued state
+    if (isDbAvailable) {
+      try {
+        await db
+          .update(emailTransmissions)
+          .set({
+            resendCount: nextResendCount,
+            lastResentAt,
+            deliveryStatus: 'queued',
+            deliveryError: null,
+            updatedAt: new Date(),
+          })
+          .where(eq(emailTransmissions.id, record.id))
+      } catch (dbErr) {
+        console.error('Database update error in resend route:', dbErr)
+      }
+    }
+
+    mockTransmissions.set(record.id, {
+      ...record,
+      resendCount: nextResendCount,
+      lastResentAt,
+      deliveryStatus: 'queued',
+      deliveryError: null,
+      updatedAt: new Date(),
+    })
+
+    // Queue background delivery job asynchronously without awaiting
+    queueMailDeliveryJob({
+      transmissionId: record.id,
       to: record.email,
       subject: '[CLASSIFIED] Recovered Transmission — Site Kennedy (Resend)',
       html: emailHtml,
       text: emailText,
-    })
-
-    // Update resend tracking info in database / mock store
-    if (isDbAvailable) {
-      await db
-        .update(emailTransmissions)
-        .set({
-          resendCount: nextResendCount,
-          lastResentAt,
-          deliveryStatus: delivery.success ? 'success' : 'failed',
-          deliveryError: delivery.error || null,
-          updatedAt: new Date(),
-        })
-        .where(eq(emailTransmissions.id, record.id))
-    } else {
-      mockTransmissions.set(record.id, {
-        ...record,
+      db,
+      isDbAvailable,
+      emailTransmissions,
+      mockTransmissions,
+      extraUpdates: {
         resendCount: nextResendCount,
         lastResentAt,
-        deliveryStatus: delivery.success ? 'success' : 'failed',
-        deliveryError: delivery.error || null,
-        updatedAt: new Date(),
-      })
-    }
-
-    if (!delivery.success) {
-      return NextResponse.json(
-        { success: false, message: `Resend failed: ${delivery.error || 'delivery error'}` },
-        { status: 500 }
-      )
-    }
+      },
+    })
 
     return NextResponse.json({ success: true })
   } catch (error: any) {
+
     console.error('Transmission resend API exception:', error)
     return NextResponse.json(
       { success: false, message: 'Internal server error.' },

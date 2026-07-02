@@ -66,11 +66,6 @@ export async function sendClassifiedEmail({
 
   // Fallback: Local log writing for offline / demo mode
   try {
-    const logDir = path.join(process.cwd(), 'artifacts')
-    if (!fs.existsSync(logDir)) {
-      fs.mkdirSync(logDir, { recursive: true })
-    }
-    const logFilePath = path.join(logDir, 'sent_emails.log')
     const logEntry = `
 ========================================
 TIMESTAMP: ${new Date().toISOString()}
@@ -85,12 +80,108 @@ ${html}
 ${text}
 ========================================
 \n`
+    if (process.env.VERCEL) {
+      console.log('\n[VERCEL EMAIL SIMULATOR] Email dispatch simulated:\n', logEntry)
+      return { success: true, id: 'simulated-brevo-id-' + Math.random().toString(36).substr(2, 9), method: 'local_log' }
+    }
+
+    const logDir = path.join(process.cwd(), 'artifacts')
+    if (!fs.existsSync(logDir)) {
+      fs.mkdirSync(logDir, { recursive: true })
+    }
+    const logFilePath = path.join(logDir, 'sent_emails.log')
     fs.appendFileSync(logFilePath, logEntry, 'utf-8')
     console.log('\n[LOCAL EMAIL SIMULATOR] Email logged to artifacts/sent_emails.log:\n', logEntry)
 
     return { success: true, id: 'simulated-brevo-id-' + Math.random().toString(36).substr(2, 9), method: 'local_log' }
   } catch (err: any) {
     console.error('Failed to log email to local artifacts:', err)
-    return { success: false, error: err.message || String(err), method: 'local_log' }
+    return { success: true, id: 'simulated-brevo-id-' + Math.random().toString(36).substr(2, 9), method: 'local_log' }
   }
 }
+
+export function queueMailDeliveryJob({
+  transmissionId,
+  to,
+  subject,
+  html,
+  text,
+  db,
+  isDbAvailable,
+  emailTransmissions,
+  mockTransmissions,
+  extraUpdates = {},
+}: {
+  transmissionId: string
+  to: string
+  subject: string
+  html: string
+  text: string
+  db: any
+  isDbAvailable: boolean
+  emailTransmissions: any
+  mockTransmissions: Map<string, any>
+  extraUpdates?: Record<string, any>
+}) {
+  // Fire and forget asynchronous mail delivery job
+  Promise.resolve().then(async () => {
+    try {
+      const delivery = await sendClassifiedEmail({ to, subject, html, text })
+
+      const updatePayload = {
+        ...extraUpdates,
+        deliveryStatus: delivery.success ? 'success' : 'failed',
+        deliveryError: delivery.error || null,
+        updatedAt: new Date(),
+      }
+
+      if (isDbAvailable) {
+        const { eq } = await import('drizzle-orm')
+        await db
+          .update(emailTransmissions)
+          .set(updatePayload)
+          .where(eq(emailTransmissions.id, transmissionId))
+      } else {
+        const record = mockTransmissions.get(transmissionId)
+        if (record) {
+          mockTransmissions.set(transmissionId, {
+            ...record,
+            ...updatePayload,
+          })
+        }
+      }
+
+      if (!delivery.success) {
+        console.error(`[MailQueue] Delivery failed for transmission ${transmissionId}:`, delivery.error)
+      }
+    } catch (err: any) {
+      console.error(`[MailQueue] Execution exception for transmission ${transmissionId}:`, err)
+      const errorPayload = {
+        ...extraUpdates,
+        deliveryStatus: 'failed',
+        deliveryError: err.message || String(err),
+        updatedAt: new Date(),
+      }
+      if (isDbAvailable) {
+        try {
+          const { eq } = await import('drizzle-orm')
+          await db
+            .update(emailTransmissions)
+            .set(errorPayload)
+            .where(eq(emailTransmissions.id, transmissionId))
+        } catch (dbErr) {
+          console.error('[MailQueue] Failed to save error status to DB:', dbErr)
+        }
+      } else {
+        const record = mockTransmissions.get(transmissionId)
+        if (record) {
+          mockTransmissions.set(transmissionId, {
+            ...record,
+            ...errorPayload,
+          })
+        }
+      }
+    }
+  })
+}
+

@@ -3,40 +3,11 @@
 import React, { useState, useEffect } from "react";
 import Image from "next/image";
 import QRCode from "qrcode";
-import { getApps, initializeApp, getApp } from "firebase/app";
-import {
-  getFirestore,
-  collection,
-  addDoc,
-  getDocs,
-  query,
-  orderBy,
-  limit,
-  serverTimestamp,
-} from "firebase/firestore";
 import { PuzzleProps } from "../types";
-
-// ── FIREBASE CONFIGURATION ──
-const firebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
-};
-
-const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
-const db = getFirestore(app, process.env.NEXT_PUBLIC_FIREBASE_FIRESTORE_DB_ID || "ai-studio-9e71cb0f-bd4b-4e61-98ec-bb0abdd53047");
 
 interface Piece {
   id: number;
   dataUrl: string;
-}
-
-interface LeaderboardEntry {
-  teamName: string;
-  secondsTaken: number;
 }
 
 // ── AUDIO BEEP GENERATOR ──
@@ -62,20 +33,15 @@ const playBeep = (freq = 600, duration = 0.08) => {
   }
 };
 
-// ── FORMAT TIME ──
-const formatTime = (totalSecs: number): string => {
-  const mins = Math.floor(totalSecs / 60);
-  const secs = totalSecs % 60;
-  return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
-};
+
 
 // ── TICKET VECTOR GENERATION ──
 const generateTicketImage = async (): Promise<string> => {
   if (typeof window === "undefined") return "";
 
   const canvas = document.createElement("canvas");
-  canvas.width = 1000;
-  canvas.height = 1000;
+  canvas.width = 500;
+  canvas.height = 500;
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("Could not get 2D context");
 
@@ -214,9 +180,7 @@ export default function BrokenTicket({
   onFailed,
   disabled = false,
 }: PuzzleProps) {
-  const [stage, setStage] = useState<"searching" | "puzzle" | "scanning" | "victory">("searching");
-  const [teamName, setTeamName] = useState<string>("");
-  const [secondsElapsed, setSecondsElapsed] = useState<number>(0);
+  const [stage, setStage] = useState<"searching" | "puzzle" | "scanning" | "victory">("puzzle");
   const [ticketFullImage, setTicketFullImage] = useState<string | null>(null);
 
   const [pieces, setPieces] = useState<Piece[]>([]);
@@ -225,27 +189,13 @@ export default function BrokenTicket({
   const [selectedPieceId, setSelectedPieceId] = useState<number | null>(null);
   const [selectedBoardIndex, setSelectedBoardIndex] = useState<number | null>(null);
 
-  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
-  const [loadingLeaderboard, setLoadingLeaderboard] = useState<boolean>(false);
   const [loadingPuzzle, setLoadingPuzzle] = useState<boolean>(false);
 
-  const [searchError, setSearchError] = useState<string | null>(null);
   const [puzzleError, setPuzzleError] = useState<string | null>(null);
   const [scanningError, setScanningError] = useState<string | null>(null);
   const [wordInput, setWordInput] = useState<string>("");
 
-  // ── TIMER RUNTIME EFFECT ──
-  useEffect(() => {
-    let timerInterval: NodeJS.Timeout | null = null;
-    if ((stage === "puzzle" || stage === "scanning") && !disabled) {
-      timerInterval = setInterval(() => {
-        setSecondsElapsed((prev) => prev + 1);
-      }, 1000);
-    }
-    return () => {
-      if (timerInterval) clearInterval(timerInterval);
-    };
-  }, [stage, disabled]);
+
 
   // ── PUZZLE INITIALIZATION EFFECT ──
   useEffect(() => {
@@ -316,55 +266,7 @@ export default function BrokenTicket({
     }
   }, [puzzleError]);
 
-  // ── SAVE & LOAD FIRESTORE LEADERBOARD ──
-  const saveTeamScore = async (team: string, duration: number) => {
-    try {
-      await addDoc(collection(db, "leaderboard"), {
-        teamName: team,
-        secondsTaken: duration,
-        solvedAt: serverTimestamp(),
-      });
-    } catch (err) {
-      console.error("Firebase save failed:", err);
-    }
-  };
-
-  const loadLeaderboard = async () => {
-    setLoadingLeaderboard(true);
-    try {
-      const q = query(
-        collection(db, "leaderboard"),
-        orderBy("secondsTaken", "asc"),
-        limit(30)
-      );
-      const snapshot = await getDocs(q);
-      const entries: LeaderboardEntry[] = [];
-      snapshot.forEach((doc) => {
-        const data = doc.data();
-        entries.push({
-          teamName: data.teamName || "Anonymous Team",
-          secondsTaken: Number(data.secondsTaken) || 0,
-        });
-      });
-      setLeaderboard(entries);
-    } catch (err) {
-      console.error("Firebase load failed:", err);
-    } finally {
-      setLoadingLeaderboard(false);
-    }
-  };
-
   // ── CLICKS & ACTIONS ──
-  const handleStartInfiltration = () => {
-    if (disabled) return;
-    if (!teamName.trim()) {
-      setSearchError("Please enter a team name to continue.");
-      return;
-    }
-    setSearchError(null);
-    setSecondsElapsed(0);
-    setStage("puzzle");
-  };
 
   const handleTrayClick = (id: number) => {
     if (disabled) return;
@@ -438,18 +340,7 @@ export default function BrokenTicket({
     setPuzzleError(null);
   };
 
-  const handleQuickSolve = () => {
-    if (disabled) return;
-    playBeep(700);
-    setBoard(Array.from({ length: 25 }, (_, i) => i));
-    setTray([]);
-    setSelectedPieceId(null);
-    setSelectedBoardIndex(null);
-    setPuzzleError(null);
-    setTimeout(() => {
-      setStage("scanning");
-    }, 400);
-  };
+
 
   const handleSubmitPuzzle = () => {
     if (disabled) return;
@@ -472,7 +363,7 @@ export default function BrokenTicket({
     }
   };
 
-  const handleVerifyAnswer = async () => {
+  const handleVerifyAnswer = () => {
     if (disabled) return;
     const val = wordInput.trim().toUpperCase();
     const cleanInput = val.replace(/[?.,!"]/g, "").replace(/\s+/g, "");
@@ -481,8 +372,6 @@ export default function BrokenTicket({
     if (cleanInput === cleanSecret) {
       playBeep(900, 0.2);
       setStage("victory");
-      await saveTeamScore(teamName, secondsElapsed);
-      await loadLeaderboard();
       if (onSolved) {
         onSolved();
       }
@@ -498,16 +387,13 @@ export default function BrokenTicket({
   const handleRestart = () => {
     if (disabled) return;
     playBeep(350);
-    setTeamName("");
     setWordInput("");
-    setSearchError(null);
     setScanningError(null);
     setPuzzleError(null);
-    setSecondsElapsed(0);
     setBoard(Array(25).fill(null));
     setTray([]);
     setPieces([]);
-    setStage("searching");
+    setStage("puzzle");
   };
 
   const correctCount = board.filter((id, i) => id === i).length;
@@ -537,91 +423,12 @@ export default function BrokenTicket({
         <div className="text-xs tracking-[0.25em] uppercase font-bold text-red-500">
           BROKEN TICKET
         </div>
-
-        {/* Stopwatch Countdown timer on the top right */}
-        {stage !== "searching" && (
-          <div className="flex items-center gap-2">
-            <span className="text-[10px] font-mono opacity-40 uppercase tracking-widest hidden sm:inline">
-              CYCLE DURATION:
-            </span>
-            <div className="text-xs font-mono font-bold bg-red-950/45 px-3 py-1.5 border border-red-900/30 text-red-400 rounded-sm">
-              ⏰ {formatTime(secondsElapsed)}
-            </div>
-          </div>
-        )}
       </nav>
 
       {/* Main Game Context Container */}
       <main className="flex-1 flex flex-col items-center justify-center p-4 sm:p-6 md:p-8 z-10 relative">
         <div className="w-full max-w-3xl flex flex-col items-center">
-          {/* STAGE 1: SEARCHING / TEAM REGISTRATION */}
-          {stage === "searching" && (
-            <div className="w-full max-w-md bg-zinc-950/40 border border-white/5 p-6 sm:p-8 rounded">
-              <div className="text-center mb-6">
-                <h1 className="text-3xl font-black tracking-tight text-white uppercase">
-                  CHALLENGE GATES
-                </h1>
-                <p className="text-xs text-white/40 font-mono tracking-wider uppercase mt-1">
-                  Assemble the ticket to decrypt the passphrase
-                </p>
-              </div>
 
-              <div className="space-y-4">
-                <div>
-                  <label className="text-[10px] font-mono tracking-widest uppercase text-white/40 block mb-1.5 font-bold">
-                    Team Identifier Name
-                  </label>
-                  <input
-                    type="text"
-                    value={teamName}
-                    onChange={(e) => setTeamName(e.target.value)}
-                    disabled={disabled}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") handleStartInfiltration();
-                    }}
-                    className="w-full bg-zinc-900/60 border border-white/10 rounded px-3 py-2.5 text-sm uppercase font-mono tracking-wider focus:outline-none focus:border-red-500 text-white transition-colors placeholder:text-white/10 disabled:opacity-50"
-                    placeholder="ENTER TEAM NAME"
-                    maxLength={24}
-                  />
-                </div>
-
-                {searchError && (
-                  <div className="flex items-center gap-2 text-rose-400 bg-red-950/40 border border-red-900/60 p-3 rounded text-[11px] font-mono">
-                    <svg
-                      className="w-4 h-4 shrink-0"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                    >
-                      <circle cx="12" cy="12" r="10" />
-                      <line x1="12" x2="12" y1="8" y2="12" />
-                      <line x1="12" x2="12.01" y1="16" y2="16" />
-                    </svg>
-                    <span>{searchError}</span>
-                  </div>
-                )}
-
-                <button
-                  onClick={handleStartInfiltration}
-                  disabled={disabled}
-                  className="w-full py-3 bg-red-600 hover:bg-red-500 font-mono text-xs uppercase tracking-widest font-black text-white rounded cursor-pointer transition-all flex items-center justify-center gap-2 shadow-lg shadow-red-950/30 disabled:opacity-50"
-                >
-                  BEGIN INFILTRATION
-                  <svg
-                    className="w-3.5 h-3.5"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                  >
-                    <path d="M5 12h14" />
-                    <path d="m12 5 7 7-7 7" />
-                  </svg>
-                </button>
-              </div>
-            </div>
-          )}
 
           {/* STAGE 2: TICKET PUZZLE */}
           {stage === "puzzle" && (
@@ -632,6 +439,9 @@ export default function BrokenTicket({
                 </h2>
                 <p className="text-[10px] text-white/40 font-mono uppercase tracking-widest">
                   No margins, no guide frames — align fibers to assemble the passkey
+                </p>
+                <p className="text-[11px] text-red-400 font-mono uppercase tracking-wider mt-2">
+                  💡 Hint: Use your camera, but not your internet
                 </p>
               </div>
 
@@ -669,13 +479,7 @@ export default function BrokenTicket({
                       >
                         Reset
                       </button>
-                      <button
-                        onClick={handleQuickSolve}
-                        disabled={disabled}
-                        className="flex items-center gap-1 px-2 py-0.5 bg-red-950 border border-red-900 text-white text-[9px] rounded cursor-pointer disabled:opacity-50"
-                      >
-                        ✨ Solve
-                      </button>
+
                     </div>
                   </div>
 
@@ -705,10 +509,12 @@ export default function BrokenTicket({
                                 {idx + 1}
                               </span>
                               {belongs && matched && (
-                                <img
+                                <Image
+                                  unoptimized
                                   src={matched.dataUrl}
                                   alt=""
-                                  className="w-full h-full object-cover absolute inset-0 pointer-events-none rounded-sm"
+                                  fill
+                                  className="object-cover pointer-events-none rounded-sm"
                                 />
                               )}
                               {selectedPieceId !== null && !belongs && (
@@ -746,10 +552,12 @@ export default function BrokenTicket({
                                       : "border-white/5 hover:border-white/10"
                                   } ${disabled ? "pointer-events-none opacity-50" : ""}`}
                                 >
-                                  <img
+                                  <Image
+                                    unoptimized
                                     src={item.dataUrl}
                                     alt=""
-                                    className="w-full h-full object-cover rounded pointer-events-none"
+                                    fill
+                                    className="object-cover rounded pointer-events-none"
                                   />
                                 </div>
                               );
@@ -826,6 +634,9 @@ export default function BrokenTicket({
               </div>
 
               <div className="w-full space-y-4">
+                <div className="text-[11px] text-red-400 font-mono uppercase tracking-wider text-center">
+                  💡 Hint: Use your camera, but not your internet
+                </div>
                 <div className="relative">
                   <input
                     type="text"
@@ -868,7 +679,7 @@ export default function BrokenTicket({
             </div>
           )}
 
-          {/* STAGE 4: VICTORY & SCORES */}
+          {/* STAGE 4: VICTORY */}
           {stage === "victory" && (
             <div className="w-full max-w-lg bg-zinc-950 border border-white/10 p-6 sm:p-8 rounded shadow-2xl flex flex-col items-center">
               {/* Trophy SVG header */}
@@ -896,63 +707,7 @@ export default function BrokenTicket({
               </p>
 
               <div className="bg-zinc-900/60 border border-white/5 rounded px-4 py-3 w-full my-6 text-center text-sm font-mono leading-relaxed">
-                🏆 Team <span className="text-white font-bold">{teamName.toUpperCase()}</span> finalized in{" "}
-                <span className="text-red-500 font-bold">
-                  {formatTime(secondsElapsed)}
-                </span>
-                !
-              </div>
-
-              {/* Scoreboard table */}
-              <div className="w-full">
-                <div className="flex items-center justify-between border-b border-white/10 pb-2 mb-3 text-[10px] font-mono uppercase tracking-widest text-white/40">
-                  <span>TEAM PERFORMANCE LEADERBOARD</span>
-                  <span>DURATION</span>
-                </div>
-
-                {/* List entries */}
-                {loadingLeaderboard ? (
-                  <div className="py-10 flex flex-col items-center justify-center text-center">
-                    <div className="w-6 h-6 border-2 border-red-500/20 border-t-red-500 rounded-full animate-spin mb-2"></div>
-                    <span className="text-[9px] font-mono text-white/30 uppercase">
-                      Querying active records...
-                    </span>
-                  </div>
-                ) : leaderboard.length === 0 ? (
-                  <div className="py-6 text-center text-white/30 font-mono text-xs">
-                    No teams registered yet.
-                  </div>
-                ) : (
-                  <div className="space-y-1">
-                    {leaderboard.map((entry, index) => {
-                      const isCurrent =
-                        entry.teamName.trim().toUpperCase() ===
-                        teamName.trim().toUpperCase();
-                      return (
-                        <div
-                          key={index}
-                          className={`flex items-center justify-between py-1.5 px-3 rounded text-xs font-mono ${
-                            isCurrent
-                              ? "bg-red-950/25 border border-red-900/40 text-red-200"
-                              : "bg-zinc-900/30 border border-white/[0.01] text-zinc-300"
-                          }`}
-                        >
-                          <div className="flex items-center gap-2 truncate">
-                            <span className="font-bold text-red-500/80 w-5">
-                              #{index + 1}
-                            </span>
-                            <span className="truncate max-w-[180px] uppercase font-semibold text-white/90">
-                              {entry.teamName}
-                            </span>
-                          </div>
-                          <span className="font-bold text-red-300 opacity-90">
-                            {formatTime(entry.secondsTaken)}
-                          </span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
+                🎉 Puzzle solved successfully!
               </div>
 
               <button
