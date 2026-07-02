@@ -182,7 +182,8 @@ export default function HuntPage() {
             if (apiCompleted[num]) {
               if (!list[num]) {
                 list[num] = true;
-                document.cookie = `case-${num}-completed=true; path=/; max-age=31536000; SameSite=Lax`;
+                const isSecure = typeof window !== "undefined" && window.location.protocol === "https:";
+                document.cookie = `case-${num}-completed=true; path=/; max-age=31536000; SameSite=Lax${isSecure ? '; Secure' : ''}`;
                 changed = true;
               }
             } else {

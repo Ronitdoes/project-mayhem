@@ -33,6 +33,31 @@ const DEFAULT_DEMO_STATE: SessionData = {
 
 import { signCookie, verifyCookie } from '@/lib/auth-session'
 
+export function hashPassword(password: string): string {
+  const salt = crypto.randomBytes(16).toString('hex')
+  const hash = crypto.pbkdf2Sync(password, salt, 100000, 64, 'sha512').toString('hex')
+  return `${salt}:${hash}`
+}
+
+export function verifyPassword(password: string, storedHash: string): boolean {
+  if (!storedHash) return false
+
+  // Legacy plaintext password compatibility
+  if (!storedHash.includes(':')) {
+    return password === storedHash
+  }
+
+  const [salt, originalHash] = storedHash.split(':')
+  if (!salt || !originalHash) return false
+
+  const hashToVerify = crypto.pbkdf2Sync(password, salt, 100000, 64, 'sha512').toString('hex')
+  try {
+    return crypto.timingSafeEqual(Buffer.from(originalHash, 'hex'), Buffer.from(hashToVerify, 'hex'))
+  } catch {
+    return false
+  }
+}
+
 
 export async function getSession(): Promise<SessionData | null> {
   const cookieStore = await cookies()
@@ -82,14 +107,13 @@ export async function getSession(): Promise<SessionData | null> {
         // Initialize progress entries if missing
         const progressList = await db.select().from(timelineProgress).where(eq(timelineProgress.userId, sessionId))
         if (progressList.length === 0) {
-          for (const t of timelines) {
-            await db.insert(timelineProgress).values({
-              userId: sessionId,
-              timelineId: t.id,
-              status: t.id === 'operation-deadlight' ? 'active' : 'locked',
-              fragmentRecovered: false,
-            })
-          }
+          const newEntries = timelines.map(t => ({
+            userId: sessionId,
+            timelineId: t.id,
+            status: (t.id === 'operation-deadlight' ? 'active' : 'locked') as 'active' | 'locked',
+            fragmentRecovered: false,
+          }))
+          await db.insert(timelineProgress).values(newEntries)
         }
       } else {
         return null
@@ -168,23 +192,24 @@ export async function setSession(name: string, email: string, teamName?: string,
     
     if (!user) {
       // Create user
+      const hashedPassword = password ? hashPassword(password) : null
       await db.insert(users).values({
         id: newUserId,
         name,
         email,
         teamName: teamName || null,
-        password: password || null,
+        password: hashedPassword,
       })
-      user = { id: newUserId, name, email, teamName: teamName || null, password: password || null, createdAt: new Date() }
+      user = { id: newUserId, name, email, teamName: teamName || null, password: hashedPassword, createdAt: new Date() }
     } else {
       // Verify password if user exists
-      if (user.password && password && user.password !== password) {
+      if (user.password && password && !verifyPassword(password, user.password)) {
         throw new Error('Incorrect password for this email address.')
       }
       // Update user info if they log in again with new info
       const updates: Record<string, any> = { name }
       if (teamName) updates.teamName = teamName
-      if (password) updates.password = password
+      if (password) updates.password = hashPassword(password)
       await db.update(users).set(updates).where(eq(users.id, user.id))
       user = { ...user, ...updates }
     }
@@ -194,14 +219,13 @@ export async function setSession(name: string, email: string, teamName?: string,
     const missingTimelines = timelines.filter(t => !currentProgress.some((p: any) => p.timelineId === t.id))
 
     if (missingTimelines.length > 0) {
-      for (const t of missingTimelines) {
-        await db.insert(timelineProgress).values({
-          userId: user.id,
-          timelineId: t.id,
-          status: t.id === 'operation-deadlight' ? 'active' : 'locked',
-          fragmentRecovered: false,
-        })
-      }
+      const newEntries = missingTimelines.map(t => ({
+        userId: user.id,
+        timelineId: t.id,
+        status: (t.id === 'operation-deadlight' ? 'active' : 'locked') as 'active' | 'locked',
+        fragmentRecovered: false,
+      }))
+      await db.insert(timelineProgress).values(newEntries)
     }
 
     cookieStore.set('auth_session', await signCookie(user.id), cookieOptions)

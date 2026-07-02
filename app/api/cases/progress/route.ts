@@ -69,10 +69,13 @@ export async function POST(request: NextRequest) {
 
     // Set cookie cache
     const cookieName = `case-${caseId}-completed`;
+    const isProd = process.env.NODE_ENV === "production";
     cookieStore.set(cookieName, "true", {
       path: "/",
       maxAge: 31536000,
       sameSite: "lax",
+      httpOnly: true,
+      secure: isProd,
     });
 
     // Write to DB if session is active and DB is available

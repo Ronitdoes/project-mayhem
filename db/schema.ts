@@ -29,7 +29,8 @@ export const puzzleEvents = pgTable('puzzle_events', {
     outcome: text('outcome').notNull().$type<'correct' | 'wrong'>(),
     timestamp: timestamp('timestamp').defaultNow(),
 }, (t) => [
-    index('puzzle_events_user_outcome_idx').on(t.userId, t.outcome)
+    index('puzzle_events_user_outcome_idx').on(t.userId, t.outcome),
+    index('puzzle_events_timeline_user_idx').on(t.timelineId, t.userId)
 ])
 
 export const fragments = pgTable('fragments', {
@@ -61,16 +62,6 @@ export const emailTransmissions = pgTable('email_transmissions', {
     deliveryError: text('delivery_error'),
 }, (t) => [
     index('email_transmissions_email_sent_idx').on(t.email, t.sentAt)
-])
-
-export const case01Questions = pgTable('case01_questions', {
-    id: uuid('id').primaryKey().defaultRandom(),
-    anomalyId: text('anomaly_id').notNull(),
-    puzzleIndex: integer('puzzle_index').notNull(),
-    question: text('question').notNull(),
-    answer: text('answer').notNull(),
-}, (t) => [
-    index('case01_questions_anomaly_puzzle_idx').on(t.anomalyId, t.puzzleIndex)
 ])
 
 export const caseQuestions = pgTable('case_questions', {

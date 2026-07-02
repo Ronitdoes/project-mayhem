@@ -12,35 +12,94 @@ function normalize(s: string): string {
     .trim();
 }
 
-function getLevenshteinDistance(s1: string, s2: string): number {
-  const m = s1.length;
-  const n = s2.length;
-  const dp: number[][] = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
+const MAX_FUZZY_STRING_LENGTH = 300;
+const similarityCache = new Map<string, number>();
+const MAX_CACHE_SIZE = 500;
 
-  for (let i = 0; i <= m; i++) dp[i][0] = i;
-  for (let j = 0; j <= n; j++) dp[0][j] = j;
+// Sliding window rate limiter to prevent brute-force ReDoS / CPU exhaustion
+const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
+const RATE_LIMIT_WINDOW_MS = 60 * 1000; // 1 minute
+const MAX_POST_REQUESTS_PER_WINDOW = 30; // 30 attempts per minute
 
-  for (let i = 1; i <= m; i++) {
-    for (let j = 1; j <= n; j++) {
-      if (s1[i - 1] === s2[j - 1]) {
-        dp[i][j] = dp[i - 1][j - 1];
-      } else {
-        dp[i][j] = Math.min(
-          dp[i - 1][j] + 1,    // deletion
-          dp[i][j - 1] + 1,    // insertion
-          dp[i - 1][j - 1] + 1 // substitution
-        );
-      }
-    }
+function checkRateLimit(identifier: string): boolean {
+  const now = Date.now();
+  const entry = rateLimitMap.get(identifier);
+  if (!entry || now > entry.resetAt) {
+    rateLimitMap.set(identifier, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
+    return false;
   }
-  return dp[m][n];
+  if (entry.count >= MAX_POST_REQUESTS_PER_WINDOW) {
+    return true;
+  }
+  entry.count++;
+  return false;
+}
+
+// Optimized 1D Levenshtein distance algorithm (O(min(M,N)) memory)
+function getLevenshteinDistance(s1: string, s2: string): number {
+  if (s1 === s2) return 0;
+  if (s1.length === 0) return s2.length;
+  if (s2.length === 0) return s1.length;
+
+  // Cap string length to prevent CPU exhaustion on extremely long inputs
+  if (s1.length > MAX_FUZZY_STRING_LENGTH) s1 = s1.slice(0, MAX_FUZZY_STRING_LENGTH);
+  if (s2.length > MAX_FUZZY_STRING_LENGTH) s2 = s2.slice(0, MAX_FUZZY_STRING_LENGTH);
+
+  // Ensure s1 is shorter to minimize Int32Array size
+  if (s1.length > s2.length) {
+    const tmpStr = s1;
+    s1 = s2;
+    s2 = tmpStr;
+  }
+
+  const len1 = s1.length;
+  const len2 = s2.length;
+
+  let prev = new Int32Array(len1 + 1);
+  let curr = new Int32Array(len1 + 1);
+
+  for (let i = 0; i <= len1; i++) {
+    prev[i] = i;
+  }
+
+  for (let j = 1; j <= len2; j++) {
+    curr[0] = j;
+    const char2 = s2.charCodeAt(j - 1);
+    for (let i = 1; i <= len1; i++) {
+      const cost = s1.charCodeAt(i - 1) === char2 ? 0 : 1;
+      curr[i] = Math.min(
+        prev[i] + 1,       // deletion
+        curr[i - 1] + 1,   // insertion
+        prev[i - 1] + cost // substitution
+      );
+    }
+    const tmp = prev;
+    prev = curr;
+    curr = tmp;
+  }
+
+  return prev[len1];
 }
 
 function getSimilarity(s1: string, s2: string): number {
-  const dist = getLevenshteinDistance(s1, s2);
+  if (s1 === s2) return 1.0;
+  
+  const cacheKey = s1 < s2 ? `${s1}:${s2}` : `${s2}:${s1}`;
+  const cached = similarityCache.get(cacheKey);
+  if (cached !== undefined) return cached;
+
   const maxLen = Math.max(s1.length, s2.length);
   if (maxLen === 0) return 1.0;
-  return 1 - dist / maxLen;
+
+  const dist = getLevenshteinDistance(s1, s2);
+  const similarity = 1 - dist / maxLen;
+
+  if (similarityCache.size >= MAX_CACHE_SIZE) {
+    const firstKey = similarityCache.keys().next().value;
+    if (firstKey) similarityCache.delete(firstKey);
+  }
+  similarityCache.set(cacheKey, similarity);
+  return similarity;
 }
 
 export async function GET(request: NextRequest) {
@@ -82,6 +141,14 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const clientIp = request.headers.get('x-forwarded-for') || 'anonymous';
+  if (checkRateLimit(clientIp)) {
+    return NextResponse.json(
+      { success: false, error: 'Too many answer attempts. Please wait a minute.' },
+      { status: 429 }
+    );
+  }
+
   if (!isDbAvailable) {
     return NextResponse.json({ success: false, error: 'Database not available' }, { status: 503 })
   }
@@ -90,7 +157,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const { caseId, puzzleKey, answer } = body
 
-    if (!caseId || !puzzleKey || typeof answer !== 'string') {
+    if (!caseId || !puzzleKey || typeof answer !== 'string' || answer.length > 500) {
       return NextResponse.json({ success: false, error: 'Invalid parameters' }, { status: 400 })
     }
 
